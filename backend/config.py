@@ -1,0 +1,23 @@
+# 配置信息
+# MYSQL所在的主机名
+HOSTNAME = "127.0.0.1"
+# MSQL监听的端口号，默认3306
+PORT = 3306
+# 连接MYSQL的用户名
+USERNAME = "root"
+# 连接MYSQL的密码
+PASSWORD = "123456"
+# MYSQL上创建的数据库名称
+DATABASE = "kg_sys"
+DB_URI = 'mysql+pymysql://{}:{}@{}:{}/{}?charset=utf8mb4'.format(USERNAME, PASSWORD, HOSTNAME
+                                                                 , PORT, DATABASE)
+SQLALCHEMY_DATABASE_URI = DB_URI
+SECRET_KEY = "YSYYRPS"
+JWT_SECRET_KEY = "QLGCJ"
+# JWT_ACCESS_TOKEN_EXPIRES = time
+
+# Neo4j 配置
+NEO4J_URI = "bolt://localhost:7687"
+NEO4J_AUTH = ("neo4j", "neo4jpwd")
+# NEO4J_DATABASE = "neo4j"  # 默认数据库名（Neo4j 4.0+支持多数据库）我的是3.5.15
+
