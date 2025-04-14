@@ -1,0 +1,80 @@
+// 清除浮动 (现代方案优先)
+@mixin clearfix {
+  & {
+    display: flow-root;
+  }
+  &:after {
+    content: "";
+    display: table;
+    clear: both;
+  }
+}
+
+// 滚动条样式 (适配 Element Plus 主题)
+@mixin scrollBar {
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--el-color-primary-light-5);
+    border-radius: 3px;
+    &:hover {
+      background: var(--el-color-primary);
+    }
+  }
+  &::-webkit-scrollbar-track {
+    background: var(--el-bg-color-page);
+  }
+}
+
+// 全屏相对定位
+@mixin relative {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+// 百分比宽度容器
+@mixin pct($width) {
+  width: #{$width};
+  position: relative;
+  margin: 0 auto;
+  @content;
+}
+
+// 三角形生成器
+@mixin triangle($size: 1rem, $color: currentColor, $direction: down) {
+  $width: calc($size / 2);
+  border: $width solid transparent;
+
+  @if $direction == up {
+    border-bottom-color: $color;
+  } @else if $direction == right {
+    border-left-color: $color;
+  } @else if $direction == down {
+    border-top-color: $color;
+  } @else if $direction == left {
+    border-right-color: $color;
+  }
+
+  width: 0;
+  height: 0;
+}
+
+// 响应式断点（硬编码方案）
+@mixin respond-to($breakpoint) {
+  @if $breakpoint == xs {
+    @media (max-width: 576px) { @content; }
+  } @else if $breakpoint == sm {
+    @media (max-width: 768px) { @content; }
+  } @else if $breakpoint == md {
+    @media (max-width: 992px) { @content; }
+  } @else if $breakpoint == lg {
+    @media (max-width: 1200px) { @content; }
+  } @else if $breakpoint == xl {
+    @media (max-width: 1920px) { @content; }
+  }
+}

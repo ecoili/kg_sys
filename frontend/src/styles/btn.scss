@@ -1,0 +1,58 @@
+@import 'element-plus/theme-chalk/src/common/var.scss';
+@import './variables.scss'; // 确保变量文件在 Element Plus 之后引入
+
+// 颜色按钮 Mixin
+@mixin colorBtn($color) {
+  background: $color;
+  color: var(--el-color-white);
+
+  &:hover {
+    background: mix($color, white, 80%);
+    &:before, &:after {
+      background: $color;
+    }
+  }
+}
+
+// 按钮样式类
+.blue-btn { @include colorBtn(var(--el-color-primary)) }
+.red-btn { @include colorBtn(var(--el-color-error)) }
+.green-btn { @include colorBtn(var(--el-color-success)) }
+
+// 特殊动效按钮
+.pan-btn {
+  font-size: 14px;
+  padding: 14px 36px;
+  border-radius: var(--el-border-radius-round);
+  position: relative;
+  transition: var(--el-transition-all);
+
+  &:hover {
+    background: var(--el-color-white);
+    &:before, &:after {
+      width: 100%;
+    }
+  }
+
+  &:before, &:after {
+    content: '';
+    position: absolute;
+    height: 2px;
+    width: 0;
+    transition: inherit;
+  }
+}
+
+// 通用按钮
+.custom-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 15px;
+  border-radius: var(--el-border-radius-base);
+  font-size: 14px;
+  cursor: pointer;
+
+  &.el-button {
+    border: 1px solid currentColor;
+  }
+}

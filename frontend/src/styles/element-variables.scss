@@ -1,0 +1,27 @@
+/*
+ * 覆盖 Element Plus 默认主题
+ * 注意：变量前缀已从 $-- 改为 $el-
+ */
+
+// 通过 @forward 覆盖核心变量
+@forward 'element-plus/theme-chalk/src/common/var' with (
+  $colors: (
+    'primary': ('base': #1890ff),
+    'success': ('base': #13ce66),
+    'warning': ('base': #ffba00),
+    'danger': ('base': #ff4949)
+  ),
+  $button: ('font-weight': 400),
+  $border: (
+    'color-light': #dfe4ed,
+    'color-lighter': #e6ebf5
+  )
+);
+
+// 导入组件库样式
+@import "~element-plus/theme-chalk/src/index";
+
+// 导出变量给 JS 使用
+:export {
+  theme: #1890ff;
+}

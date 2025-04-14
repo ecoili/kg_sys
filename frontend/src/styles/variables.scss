@@ -1,0 +1,61 @@
+@use 'element-plus/theme-chalk/src/common/var' as *;
+@use 'sass:map';
+@use 'sass:meta';
+/* 基础变量定义（新增） */
+$sideBarWidth: 210px; // 必须添加这个声明
+/* 颜色系统 */
+$custom-colors: (
+  'blue': #324157,
+  'light-blue': #3A71A8,
+  'red': #C03639,
+  'pink': #E65D6E,
+  'green': #30B08F,
+  'tiffany': #4AB7BD,
+  'yellow': #FEC171,
+  'panGreen': #30B08F
+);
+
+/* 侧边栏主题配置 */
+$menu-theme: (
+  'light': (
+    'bg': #304156,
+    'text': #bfcbd9,
+    'active': var(--el-color-primary),
+    'hover': #263445,
+    'sub-bg': #1f2d3d,
+    'sub-hover': #001528
+  ),
+  'dark': (
+    'bg': #1f2d3d,
+    'text': #a0b1c5,
+    'active': var(--el-color-primary-light-3),
+    'hover': #001528,
+    'sub-bg': #0d1a26,
+    'sub-hover': #000c17
+  )
+);
+
+/* 生成CSS变量 */
+:root {
+  --side-bar-width: 210px;
+  
+  // 自定义颜色变量
+  @each $name, $color in $custom-colors {
+    --#{$name}-color: #{$color};
+  }
+  
+  // 菜单主题变量
+  @each $mode, $map in $menu-theme {
+    @each $key, $value in $map {
+      --menu-#{$mode}-#{$key}: #{$value};
+    }
+  }
+}
+
+/* 导出到JS (支持Tree Shaking) */
+:export {
+  colors: meta.module-variables('custom-colors');
+  menuLightTheme: map.get($menu-theme, 'light');
+  menuDarkTheme: map.get($menu-theme, 'dark');
+  sideBarWidth: $sideBarWidth;
+}

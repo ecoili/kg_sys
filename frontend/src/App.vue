@@ -1,3 +1,4 @@
+<!--
 <template>
   <router-view></router-view>
 </template>
@@ -13,3 +14,22 @@ body {
   font-family: Arial, sans-serif;
 }
 </style>
+-->
+
+
+<!-- src/App.vue -->
+<template>
+  <el-container>
+    <el-aside width="200px">
+      <!-- 侧边菜单 -->
+    </el-aside>
+    <el-container>
+      <el-header>
+        <!-- 顶部导航 -->
+      </el-header>
+      <el-main>
+        <router-view/>
+      </el-main>
+    </el-container>
+  </el-container>
+</template>

@@ -1,0 +1,61 @@
+/* Element Plus 覆盖样式 */
+@use 'element-plus/theme-chalk/src/common/var' as *;
+
+/* 自定义断点变量（与Element Plus内部一致） */
+$breakpoints: (
+  'xs': 0,
+  'sm': 768px,
+  'md': 992px,
+  'lg': 1200px,
+  'xl': 1920px
+);
+/* 响应式调整 */
+.fixed-width {
+  .el-button--small {
+    @include respond-to('sm') {
+      min-width: 40px;
+    }
+  }
+}
+/* 面包屑 */
+.el-breadcrumb__inner,
+.el-breadcrumb__inner a {
+  font-weight: 400;
+  color: var(--el-text-color-regular);
+}
+
+/* 表格单元格 */
+.cell {
+  .el-tag {
+    margin-right: 0;
+    + .el-tag { margin-left: 5px; }
+  }
+}
+
+.small-padding {
+  .cell {
+    padding: 0 var(--el-padding-xs);
+  }
+}
+
+/* 上传组件 */
+.upload-container {
+  .el-upload {
+    width: 100%;
+
+    .el-upload-dragger {
+      width: 100%;
+      height: 200px;
+      padding: 20px;
+    }
+  }
+}
+
+/* 响应式混入 */
+@mixin respond-to($breakpoint) {
+  @if map-has-key($breakpoints, $breakpoint) {
+    @media (max-width: map-get($breakpoints, $breakpoint)) {
+      @content;
+    }
+  }
+}

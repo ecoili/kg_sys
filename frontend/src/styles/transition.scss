@@ -1,0 +1,62 @@
+// 使用 Element Plus 的过渡变量
+@use 'element-plus/theme-chalk/src/common/var' as *;
+
+$transition: all var(--el-transition-duration) var(--el-transition-function);
+
+/* 基础淡入淡出 */
+.fade {
+  &-enter-active,
+  &-leave-from-active {
+    transition: opacity var(--el-transition-duration);
+  }
+  &-enter-from,
+  &-leave-to {
+    opacity: 0;
+  }
+}
+
+/* 带位移的淡入淡出 */
+.fade-transform {
+  &-enter-active,
+  &-leave-from-active {
+    transition: $transition;
+  }
+  &-enter-from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  &-leave-to {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+}
+
+/* 面包屑专用过渡 */
+.breadcrumb {
+  &-enter-active,
+  &-leave-from-active {
+    transition: $transition;
+  }
+  &-enter-from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  &-move {
+    transition: $transition;
+  }
+  &-leave-from-active {
+    position: absolute;
+  }
+}
+
+/* 新增：弹窗过渡 */
+.modal {
+  &-enter-from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  &-leave-to {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+}
