@@ -20,7 +20,7 @@ class CaptchaGenerator:
         try:
             font = ImageFont.truetype('arial.ttf', 24)
         except:
-            font = ImageFont.load_default()
+            font = ImageFont.load_default(size=24)
 
         # 绘制文字（添加干扰）
         for i, char in enumerate(captcha_text):

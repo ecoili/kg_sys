@@ -26,7 +26,7 @@ class Neo4jGraph:
         self.graph = Graph(
             app.config['NEO4J_URI'],
             auth=app.config['NEO4J_AUTH'],
-            # name=app.config.get('NEO4J_DATABASE', 'neo4j')
+            # name=app.config.get('NEO4J_DATABASE', 'neo4j') neo4j v4+
         )
 
 

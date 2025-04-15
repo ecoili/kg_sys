@@ -50,7 +50,7 @@ const form = ref({
   captcha_id: '',
 });
 
-// 验证码图片
+// 验证码图片 本地存储
 const captchaImage = ref('');
 
 // 表单验证规则

@@ -21,19 +21,23 @@ captcha_data = {}
 
 @auth_bp.route('/captcha', methods=['GET'])
 def get_captcha():
-    captcha_text, image_base64 = CaptchaGenerator.generate_captcha()
-    captcha_id = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
+    try:
+        captcha_text, image_base64 = CaptchaGenerator.generate_captcha()
+        captcha_id = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
 
-    # 存储验证码（5分钟过期）
-    captcha_data[captcha_id] = {
-        'text': captcha_text.lower(),  # 不区分大小写
-        'expire': datetime.datetime.now() + datetime.timedelta(minutes=5)
-    }
+        # 存储验证码（5分钟过期）
+        captcha_data[captcha_id] = {
+            'text': captcha_text.lower(),  # 不区分大小写
+            'expire': datetime.datetime.now() + datetime.timedelta(minutes=5)
+        }
 
-    return jsonify({
-        'captcha_id': captcha_id,
-        'image': image_base64
-    })
+        return jsonify({
+            'captcha_id': captcha_id,
+            'image': image_base64
+        })
+    except Exception as e:
+        logging.error(f"生成验证码失败: {str(e)}")
+        return jsonify({'message': '生成验证码失败'}), 500
 
 
 @auth_bp.route('/register', methods=['POST'])
