@@ -91,18 +91,21 @@ const refreshCaptcha = async () => {
 
 const handleRegister = async () => {
   try {
-    await register(form.value);
-    ElMessage.success('注册成功');
-    await router.push('/auth/login');
+    await register(form.value)
+    ElMessage.success('注册成功')
+    await router.push('/auth/login')
   } catch (error) {
-    ElMessage.error(error.response?.data?.message || '注册失败');
-    await refreshCaptcha();
+    /*ElMessage.error(error.response?.data?.message || '注册失败');
+    await refreshCaptcha()*/
+    //统一修改
+    ElMessage.error(error.message || '注册失败')
+    refreshCaptcha()
   }
-};
+}
 
 onMounted(() => {
-  refreshCaptcha();
-});
+  refreshCaptcha()
+})
 </script>
 
 <style scoped>

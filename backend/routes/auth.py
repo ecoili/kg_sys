@@ -11,11 +11,12 @@ from backend.models.sql_user import User
 from backend.extensions import db
 import datetime, random, string
 from ..utils.captcha import CaptchaGenerator
+from ..utils.response import success_response, error_response
 
 # 创建一个名为auth的蓝图并赋值给auth
 auth_bp = Blueprint('auth', __name__)
 
-# 临时存储验证码（生产环境建议用Redis）
+# 临时存储验证码（生产环境建议用Redis） 字典类型
 captcha_data = {}
 
 
@@ -31,7 +32,11 @@ def get_captcha():
             'expire': datetime.datetime.now() + datetime.timedelta(minutes=5)
         }
 
-        return jsonify({
+        logging.info(f"生成验证码: ID={captcha_id}, 过期时间={captcha_data[captcha_id]['expire']}")
+        # logging.info(f"验证验证码: ID={captcha_id}, 当前时间={datetime.datetime.now()}")
+
+        # 返回验证码id和图片的JSON格式，图片是base64格式
+        return success_response({
             'captcha_id': captcha_id,
             'image': image_base64
         })
@@ -87,59 +92,78 @@ def register():
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
-    # 判断请求是否为JSON格式
-    if not request.is_json:
-        return jsonify({'message': 'Request must be JSON'}), 400
+    try:
+        # 判断请求是否为JSON格式
+        if not request.is_json:
+            return jsonify({'message': 'Request must be JSON'}), 400
+        # 获取数据
+        data = request.get_json()
 
-    # 获取数据
-    data = request.get_json()
+        # 判断关键字段是否为空
+        required_fields = ['phone', 'password', 'captcha', 'captcha_id']
+        if not all(field in data for field in required_fields):
+            return jsonify({'message': 'Missing required fields'}), 400
 
-    # 判断关键字段是否为空
-    required_fields = ['phone', 'password', 'captcha', 'captcha_id']
-    if not all(field in data for field in required_fields):
-        return jsonify({'message': 'Missing required fields'}), 400
+        # 验证码校验
+        stored_captcha = captcha_data.get(data['captcha_id'])
+        logging.info(f"服务器当前时间: {datetime.datetime.now()}")
+        if not stored_captcha:
+            logging.error(f"验证码ID不存在或已过期: {data['captcha_id']}")
+            return jsonify({'message': '验证码已过期，请刷新'}), 400
 
-    # 验证码校验
-    stored_captcha = captcha_data.get(data['captcha_id'])
-    if not stored_captcha:
-        return jsonify({'message': '验证码已过期，请刷新'}), 400
+        # 只有验证码存在时才继续校验
+        logging.info(
+            f"验证验证码: ID={data['captcha_id']}, "
+            f"生成的验证码内容:{stored_captcha['text']}, "
+            f"输入验证码：{data['captcha']}, "
+            f"过期时间:{stored_captcha['expire']}"
+        )
 
-    if datetime.datetime.now() > stored_captcha['expire']:
+        if datetime.datetime.now() > stored_captcha['expire']:
+            del captcha_data[data['captcha_id']]
+            return jsonify({'message': '验证码已过期，请刷新'}), 400
+
+        # 验证码不区分大小写
+        if data['captcha'].lower() != stored_captcha['text']:
+            return jsonify({'message': '验证码错误'}), 400
+
+        # 验证通过后删除验证码
         del captcha_data[data['captcha_id']]
-        return jsonify({'message': '验证码已过期，请刷新'}), 400
 
-    if data['captcha'].lower() != stored_captcha['text']:
-        return jsonify({'message': '验证码错误'}), 400
+        # 验证用户是否存在
+        user = User.query.filter_by(phone=data['phone']).first()
+        if not user:
+            logging.warning(f"Failed login attempt for phone: {data['phone']}")
+            return jsonify({'message': '用户不存在'}), 401  # 模糊提示
 
-    # 验证通过后删除验证码
-    del captcha_data[data['captcha_id']]
+        # 验证密码是否正确
+        if not user.check_password(data['password']):
+            logging.warning(f"Failed password attempt for user: {user.id}")
+            return jsonify({'message': '密码不正确'}), 401
 
-    # 验证用户是否存在
-    user = User.query.filter_by(phone=data['phone']).first()
-    if not user:
-        logging.warning(f"Failed login attempt for phone: {data['phone']}")
-        return jsonify({'message': 'Invalid credentials'}), 401  # 模糊提示
+        # 设置登录信息过期时间
+        access_token = create_access_token(
+            identity=user.id,
+            expires_delta=timedelta(hours=1)
+        )
 
-    # 验证密码是否正确
-    if not user.check_password(data['password']):
-        logging.warning(f"Failed password attempt for user: {user.id}")
-        return jsonify({'message': 'Invalid credentials'}), 401
+        # 日志
+        logging.info(f"Failed login attempt for phone: {data['phone']}")
 
-    # 设置过期时间
-    access_token = create_access_token(
-        identity=user.id,
-        expires_delta=timedelta(hours=1)
-    )
-
-    # 日志
-    logging.warning(f"Failed login attempt for phone: {data['phone']}")
-
-    # 安全返回
-    return jsonify({
-        'access_token': access_token,
-        'token_type': 'bearer',
-        'expires_in': 3600  # 明确过期时间（秒）1h
-    }), 200
+        # 安全返回
+        # return jsonify({
+        #     'access_token': access_token,
+        #     'token_type': 'bearer',
+        #     'expires_in': 3600  # 明确过期时间（秒）1h
+        # }), 200
+        # 使用统一响应格式
+        return success_response({
+            'access_token': access_token,
+            'token_type': 'bearer',
+            'expires_in': 3600
+        })
+    except Exception as e:
+        return error_response(str(e), 500)
 
 
 @auth_bp.route('/protected', methods=['GET'])
@@ -160,3 +184,4 @@ def refresh():
                    token_type='bearer',
                    expires_in=3600
     ), 200
+

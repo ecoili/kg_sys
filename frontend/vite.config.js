@@ -8,7 +8,11 @@ export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
+      '@': path.resolve(__dirname, './src'),
+      /*'dayjs': 'dayjs/esm',  //主入口
+      'dayjs/plugin': 'dayjs/esm/plugin', // 处理插件，映射到xxx/index.js*/
+      // 'dayjs': path.resolve(__dirname, 'node_modules/dayjs/esm/index.js'),
+      // 'dayjs/plugin': path.resolve(__dirname, 'node_modules/dayjs/esm/plugin')
     }
   },
   server: {
@@ -23,6 +27,26 @@ export default defineConfig({
           });
         }
       }
+    },
+    watch: {
+      // 限制监听的文件范围
+      ignored: ['node_modules', 'dist']
     }
+  },
+  optimizeDeps: {
+  // noDiscovery: true,
+  include: ['dayjs',
+    'dayjs/plugin/customParseFormat',
+    'dayjs/plugin/localeData',
+    'dayjs/plugin/advancedFormat',
+    'dayjs/plugin/weekOfYear',
+    'dayjs/plugin/weekYear',
+    'dayjs/plugin/dayOfYear',
+    'dayjs/plugin/isSameOrAfter',
+    'dayjs/plugin/isSameOrBefore']
+},
+  build: {
+    // 关闭 sourcemap 减少内存
+    sourcemap: false,
   }
 })
