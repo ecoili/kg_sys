@@ -33,7 +33,6 @@ def get_captcha():
         }
 
         logging.info(f"生成验证码: ID={captcha_id}, 过期时间={captcha_data[captcha_id]['expire']}")
-        # logging.info(f"验证验证码: ID={captcha_id}, 当前时间={datetime.datetime.now()}")
 
         # 返回验证码id和图片的JSON格式，图片是base64格式
         return success_response({
@@ -42,14 +41,14 @@ def get_captcha():
         })
     except Exception as e:
         logging.error(f"生成验证码失败: {str(e)}")
-        return jsonify({'message': '生成验证码失败'}), 500
+        return error_response(message='生成验证码失败', code=500)
 
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
     # 1. 验证请求数据
     if not request.is_json:
-        return jsonify({'message': 'Request must be JSON'}), 400
+        return error_response(message='Request must be JSON', code=400)
 
     data = request.get_json()
     # 注册需要 用户名，手机号，密码
@@ -58,7 +57,8 @@ def register():
     # 括号内作用：生成布尔值迭代器  结果举例：(True,True,False)
     # all() 当所有内容为true时才返回True
     if not all(field in data for field in required_fields):
-        return jsonify({'message': 'Missing required fields'}), 400
+        return error_response(message='缺少必要信息', code=400)
+
 
     '''
         User.query  创建针对 User 模型的查询对象
@@ -67,16 +67,16 @@ def register():
     '''
 
     if User.query.filter_by(phone=data['phone']).first():
-        return jsonify({'message': 'Phone number already exists'}), 400
+        return error_response(message='该手机号已被注册', code=400)
 
     # 3. 验证手机号格式
     phone = data['phone'].strip()
     if not re.match(r'^1[3-9]\d{9}$', phone):
-        return jsonify({'message': 'Invalid phone number'}), 400
+        return error_response(message='手机号不合法', code=400)
 
     # 密码长度限制
     if len(data['password']) < 8:
-        return jsonify({'message': 'Password too weak (min 8 chars)'}), 400
+        return error_response(message='密码太弱（至少8位）', code=400)
 
     user = User(username=data['username'].strip(), phone=phone)
     user.set_password(data['password'])
@@ -85,9 +85,9 @@ def register():
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        return jsonify({'message': 'Registration failed'}), 500
+        return error_response(message='注册失败', code=500)
 
-    return jsonify({'message': 'User registered successfully'}), 201
+    return success_response(message='用户注册成功', code=201)
 
 
 @auth_bp.route('/login', methods=['POST'])
@@ -95,21 +95,25 @@ def login():
     try:
         # 判断请求是否为JSON格式
         if not request.is_json:
-            return jsonify({'message': 'Request must be JSON'}), 400
+            return error_response(message='Request must be JSON', code=400)
         # 获取数据
         data = request.get_json()
 
         # 判断关键字段是否为空
         required_fields = ['phone', 'password', 'captcha', 'captcha_id']
         if not all(field in data for field in required_fields):
-            return jsonify({'message': 'Missing required fields'}), 400
+            return error_response(message='缺少必要信息', code=400)
 
         # 验证码校验
         stored_captcha = captcha_data.get(data['captcha_id'])
         logging.info(f"服务器当前时间: {datetime.datetime.now()}")
         if not stored_captcha:
             logging.error(f"验证码ID不存在或已过期: {data['captcha_id']}")
-            return jsonify({'message': '验证码已过期，请刷新'}), 400
+            return error_response(
+                message='验证码已过期，请刷新',
+                code=400,
+                errors=[{'field': 'captcha', 'code': 'captcha_expired'}]
+            )
 
         # 只有验证码存在时才继续校验
         logging.info(
@@ -121,11 +125,19 @@ def login():
 
         if datetime.datetime.now() > stored_captcha['expire']:
             del captcha_data[data['captcha_id']]
-            return jsonify({'message': '验证码已过期，请刷新'}), 400
+            return error_response(
+                message='验证码已过期，请刷新',
+                code=400,
+                errors=[{'field': 'captcha', 'code': 'captcha_expired'}]
+            )
 
         # 验证码不区分大小写
         if data['captcha'].lower() != stored_captcha['text']:
-            return jsonify({'message': '验证码错误'}), 400
+            return error_response(
+                message='验证码错误',
+                code=400,
+                errors=[{'field': 'captcha', 'code': 'captcha_invalid'}]
+            )
 
         # 验证通过后删除验证码
         del captcha_data[data['captcha_id']]
@@ -134,12 +146,20 @@ def login():
         user = User.query.filter_by(phone=data['phone']).first()
         if not user:
             logging.warning(f"Failed login attempt for phone: {data['phone']}")
-            return jsonify({'message': '用户不存在'}), 401  # 模糊提示
+            return error_response(
+                message='用户不存在',
+                code=401,
+                errors=[{'field': 'phone', 'code': 'user_not_found'}]
+            )
 
         # 验证密码是否正确
         if not user.check_password(data['password']):
             logging.warning(f"Failed password attempt for user: {user.id}")
-            return jsonify({'message': '密码不正确'}), 401
+            return error_response(
+                message='密码不正确',
+                code=401,
+                errors=[{'field': 'password', 'code': 'password_invalid'}]
+            )
 
         # 设置登录信息过期时间
         access_token = create_access_token(
@@ -150,17 +170,12 @@ def login():
         # 日志
         logging.info(f"Failed login attempt for phone: {data['phone']}")
 
-        # 安全返回
-        # return jsonify({
-        #     'access_token': access_token,
-        #     'token_type': 'bearer',
-        #     'expires_in': 3600  # 明确过期时间（秒）1h
-        # }), 200
         # 使用统一响应格式
         return success_response({
             'access_token': access_token,
             'token_type': 'bearer',
-            'expires_in': 3600
+            'expires_in': 3600,
+            'username': user.username
         })
     except Exception as e:
         return error_response(str(e), 500)
@@ -171,7 +186,7 @@ def login():
 def protected():
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    return jsonify(logged_in_as=user.username), 200
+    return success_response(data={'logged_in_as': user.username})
 
 
 # 刷新Token机制
@@ -180,8 +195,9 @@ def protected():
 def refresh():
     current_user = get_jwt_identity()
     new_token = create_access_token(identity=current_user)
-    return jsonify(access_token=new_token,
-                   token_type='bearer',
-                   expires_in=3600
-    ), 200
+    return success_response({
+        'access_token': new_token,
+        'token_type': 'bearer',
+        'expires_in': 3600
+    })
 

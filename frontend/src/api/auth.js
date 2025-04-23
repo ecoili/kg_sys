@@ -17,16 +17,6 @@ api.interceptors.request.use(config => {
 
 // 响应拦截器：处理Token过期
 api.interceptors.response.use(
-
-  // response => {
-  //     console.log('Axios response:', response)
-  //     // return {
-  //     //       response.data
-  //     //      // _fullResponse: response
-  //     // }
-  //     // 返回整个response对象，而不是response.data
-  //     return response.data
-  // },
     response => {
         console.log("进入响应拦截器")
         console.log('Axios response:', response)
@@ -43,11 +33,6 @@ api.interceptors.response.use(
   },
   error => {
       console.error('Axios error:', error)
-    // if (error.response.status === 401 && !error.config._retry) {
-    //   // 尝试刷新Token
-    //   return refreshTokenAndRetry(error);
-    // }
-    // return Promise.reject(error);
       const apiError = {
       code: error.response?.status || 500,
       message: error.response?.data?.message || '网络错误',
@@ -57,7 +42,7 @@ api.interceptors.response.use(
       //401处理
       if (error.response?.status === 401) {
       localStorage.removeItem('access_token')
-      router.push('/auth/login')
+      // router.push('/auth/login')
     }
     return Promise.reject(apiError)
   }

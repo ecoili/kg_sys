@@ -14,7 +14,17 @@ export default {
           <el-input v-model="form.phone" placeholder="手机号" />
         </el-form-item>
         <el-form-item prop="password">
-          <el-input v-model="form.password" type="password" placeholder="密码" />
+          <el-input
+          v-model="form.password"
+          :type="showPassword ? 'text' : 'password'"
+          placeholder="密码"
+          >
+    <template #suffix>
+      <el-icon @click="showPassword = !showPassword" style="cursor: pointer">
+        <component :is="showPassword ? View : Hide" />
+      </el-icon>
+    </template>
+  </el-input>
         </el-form-item>
         <el-form-item prop="captcha">
           <div class="captcha-wrapper">
@@ -39,8 +49,10 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCaptcha, login } from '@/api/auth'
 import { ElMessage } from 'element-plus'
+import { View, Hide } from '@element-plus/icons-vue'
 
 const router = useRouter();
+const showPassword = ref(false)
 
 // 表单数据
 const form = ref({
@@ -107,28 +119,41 @@ const handleLogin = async () => {
     //将返回的access_token存入浏览器本地存储
     //正常返回的是解构后的数据，data:{'access_token':xxxx,xxxxx},见auth.js响应拦截器
     localStorage.setItem('access_token', res.access_token)
+    localStorage.setItem('username', res.username)
     //检查是否存入成功
     console.log('Stored token:', localStorage.getItem('access_token'))
     router.push('/app/dashboard')
   } catch (error) {
     console.error('Login error details:', error) // 打印完整错误对象
-  /*let errorMessage = '登录失败'
-  if (error.response) {
-    // 来自后端的错误响应
-    errorMessage = error.response.data?.message ||
-                  error.response.data?.error ||
-                  error.response.statusText
-  } else if (error.request) {
-    // 请求已发出但无响应
-    errorMessage = '网络错误，请检查连接'
-  }
-  ElMessage.error(errorMessage)
-  //非密码/凭证错误，刷新验证码
-   if (![401, 403].includes(error.response?.status)) {
-    refreshCaptcha();
-  }*/
-    ElMessage.error(error.message || '登录失败')
-    refreshCaptcha()
+    // 根据错误类型显示不同提示
+    if (error.errors && error.errors.length > 0) {
+      const firstError = error.errors[0];
+
+      switch (firstError.code) {
+        case 'captcha_expired':
+          ElMessage.error('验证码已过期，请刷新');
+          await refreshCaptcha();
+          break;
+        case 'captcha_invalid':
+          ElMessage.error('验证码错误，请重新输入');
+          form.value.captcha = ''; // 清空验证码输入框
+          break;
+        case 'user_not_found':
+          ElMessage.error('用户不存在，请检查手机号');
+          form.value.phone = ''; // 清空手机号输入框
+          await refreshCaptcha();
+          break;
+        case 'password_invalid':
+          ElMessage.error('密码不正确，请重新输入');
+          form.value.password = ''; // 清空密码输入框
+          await refreshCaptcha();
+          break;
+        default:
+          ElMessage.error(error.message || '登录失败');
+      }
+    } else {
+      ElMessage.error(error.message || '网络错误，请稍后重试');
+    }
   } finally {
     loading.value = false;
   }

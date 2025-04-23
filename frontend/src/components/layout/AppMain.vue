@@ -26,6 +26,7 @@ watch(() => route.path, () => {
   min-height: calc(100vh - 50px);
   padding: 20px;
   background-color: #f0f2f5;
+  //position: relative;  //新增
 }
 
 .fade-transform-leave-active,

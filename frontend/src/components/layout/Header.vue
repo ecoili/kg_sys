@@ -35,18 +35,22 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import avatar from '@/assets/avatar.png'
+import {computed, onMounted, ref} from 'vue'
+import {useRoute, useRouter} from 'vue-router'
+import avatar from '@/assets/default.png'
+import {ElMessage} from "element-plus";
 
 const router = useRouter()
 const route = useRoute()
-const username = ref('管理员')
+const username = ref('')
 const isCollapse = ref(false)
 
+onMounted(() => {
+  username.value = localStorage.getItem('username') || '未登录用户'
+})
+
 const breadcrumbs = computed(() => {
-  const matched = route.matched.filter(item => item.meta && item.meta.title)
-  return matched
+  return route.matched.filter(item => item.meta && item.meta.title)
 })
 
 const toggleCollapse = () => {
@@ -55,8 +59,10 @@ const toggleCollapse = () => {
 }
 
 const logout = () => {
-  localStorage.removeItem('token')
-  router.push('/login')
+  localStorage.removeItem('access_token')
+  localStorage.removeItem('username')
+  ElMessage.success('您已成功退出登录')
+  router.push('/auth/login')
 }
 </script>
 

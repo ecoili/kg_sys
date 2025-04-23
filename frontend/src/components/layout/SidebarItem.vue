@@ -16,14 +16,20 @@
         v-for="child in item.children"
         :key="child.path"
         :item="child"
-        :base-path="resolvePath(basePath, child.path)" />
+        :base-path="resolvePath(basePath, item.path)" />
     </el-sub-menu>
   </template>
 </template>
 
 <script setup>
 import { defineProps } from 'vue'
-import path from 'path'
+
+const resolvePath = (basePath, routePath) => {
+  if (routePath.startsWith('/')) {
+    return routePath
+  }
+  return `${basePath}/${routePath}`.replace(/\/+/g, '/')
+}
 
 const props = defineProps({
   item: {
@@ -32,12 +38,10 @@ const props = defineProps({
   },
   basePath: {
     type: String,
+    required: true,
     default: ''
   }
 })
 
-const resolvePath = (basePath, routePath) => {
-  // return path.resolve(basePath, routePath)
-  return basePath + (basePath.endsWith('/') || routePath.startsWith('/') ? '' : '/') + routePath
-}
+console.log('解析路径:', 'basePath:', props.basePath, 'routePath:', props.item.path, 'resolved:', resolvePath(props.basePath, props.item.path))
 </script>

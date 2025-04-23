@@ -17,7 +17,17 @@ export default {
           <el-input v-model="form.phone" placeholder="手机号" />
         </el-form-item>
         <el-form-item prop="password">
-          <el-input v-model="form.password" type="password" placeholder="密码" />
+          <el-input
+    v-model="form.password"
+    :type="showPassword ? 'text' : 'password'"
+    placeholder="密码"
+  >
+    <template #suffix>
+      <el-icon @click="showPassword = !showPassword" style="cursor: pointer">
+        <component :is="showPassword ? View : Hide" />
+      </el-icon>
+    </template>
+  </el-input>
         </el-form-item>
         <el-form-item prop="captcha">
           <div class="captcha-wrapper">
@@ -42,16 +52,18 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { getCaptcha, register } from '@/api/auth';
 import { ElMessage } from 'element-plus';
+import { View, Hide } from '@element-plus/icons-vue'
 
-const router = useRouter();
+const router = useRouter()
+const showPassword = ref(false)
 const form = ref({
   username: '',
   phone: '',
   password: '',
   captcha: '',
   captcha_id: '',
-});
-const captchaImage = ref('');
+})
+const captchaImage = ref('')
 
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
