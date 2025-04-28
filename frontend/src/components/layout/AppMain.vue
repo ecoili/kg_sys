@@ -23,10 +23,9 @@ watch(() => route.path, () => {
 
 <style lang="scss" scoped>
 .app-main {
-  min-height: calc(100vh - 50px);
+  min-height: calc(100vh - 90px); // 调整计算值
   padding: 20px;
   background-color: #f0f2f5;
-  //position: relative;  //新增
 }
 
 .fade-transform-leave-active,

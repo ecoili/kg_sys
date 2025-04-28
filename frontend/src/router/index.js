@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router'
 // 定义前端路由规则，控制页面导航
 // 将URL路径映射到对应的vue组件
 
@@ -34,6 +34,26 @@ const routes = [
         component: () => import('@/views/KnlGraph.vue')
       },
       {
+        path: 'data',
+        name: 'AllData',
+        meta: { title: '系统数据', icon: 'el-icon-warning' },
+        redirect: '/app/emergency/report',
+        children: [
+          {
+            path: 'posiinfo',
+            name: 'PositionTable',
+            meta: { title: '阵位信息' },
+            component: () => import('@/views/sys_data/PosTable.vue')
+          },
+          {
+            path: 'taskinfo',
+            name: 'TaskTable',
+            meta: { title: '任务信息' },
+            component: () => import('@/views/sys_data/TaskTable.vue')
+          }
+        ]
+      },
+      {
         path: 'emergency',
         name: 'Emergency',
         meta: { title: '特情处置', icon: 'el-icon-warning' },
@@ -53,31 +73,11 @@ const routes = [
           }
         ]
       },
-      // {
-      //   path: 'system',
-      //   name: 'SystemSettings',
-      //   meta: { title: '系统设置', icon: 'el-icon-setting' },
-      //   redirect: '/app/system/users',
-      //   children: [
-      //     {
-      //       path: 'users',
-      //       name: 'UserManagement',
-      //       meta: { title: '用户管理' },
-      //       component: () => import('@/views/system/Users.vue')
-      //     },
-      //     {
-      //       path: 'roles',
-      //       name: 'RoleManagement',
-      //       meta: { title: '角色权限' },
-      //       component: () => import('@/views/system/Roles.vue')
-      //     }
-      //   ]
-      // }
       {
-        path: 'simulation',
-        name: 'Simul',
+        path: 'simulpage',
+        name: 'Simulation',
         meta: { title: '特情模拟', icon: 'el-icon-s-promotion' },
-        component: () => import('@/views/SimulEmerg.vue')
+        component: () => import('@/views/emergency/SimulEmerg.vue')
       }
     ]
 },

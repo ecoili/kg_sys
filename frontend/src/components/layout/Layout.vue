@@ -30,32 +30,44 @@ provide('toggleCollapse', toggleCollapse)
 <style lang="scss" scoped>
 .app-wrapper {
   position: relative;
-  height: 100vh;
+  height: 100vh;  // 改为 min-height: 100vh;
   width: 100%;
   display: flex;
+  flex-direction: column; // 新增
 
   .sidebar-container {
     width: 210px;
-    height: 100%;
+    height: 100vh; // 确保侧边栏高度固定
+    position: fixed; // 新增
+    left: 0;
+    top: 0;
+    bottom: 0;
     background: #001529;
     transition: width 0.28s;
+    z-index: 1001; // 确保在内容之上
   }
 
   .main-container {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    margin-left: 210px; // 与侧边栏宽度一致
+    transition: margin-left 0.28s;
+    min-height: 100vh; // 新增
 
     .header-container {
       height: 50px;
       background: white;
+      position: sticky; // 新增
+      top: 0;
+      z-index: 1000;
     }
 
     .main-content {
       flex: 1;
       overflow: auto;
       background: #f0f2f5;
+      padding: 20px;
     }
   }
 }

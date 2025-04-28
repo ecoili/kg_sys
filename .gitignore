@@ -1,0 +1,5 @@
+# 忽略pycache
+__pycache__/
+
+venv/
+model_assets/

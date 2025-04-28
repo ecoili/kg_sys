@@ -1,7 +1,7 @@
 import axios from 'axios';
 import router from "@/router";
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: '/api', // Flask 后端地址
 })
 // 封装与后端flask的认证相关api请求，集中管理api端点，便于维护

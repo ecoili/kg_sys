@@ -5,6 +5,7 @@ from sqlalchemy import text
 # from backend.models.sql_user import User
 from backend.routes.auth import auth_bp
 from backend.routes.dashboard import board_bp
+from backend.routes.emergency import emergency_bp
 from . import commands
 app = Flask(__name__)
 
@@ -25,7 +26,7 @@ login_manager.login_message_category = 'info'
 # 所有auth_bp的路由自动添加前缀/auth
 app.register_blueprint(auth_bp, url_prefix='/auth')
 app.register_blueprint(board_bp, url_prefix='/app')
-
+app.register_blueprint(emergency_bp, url_prefix='/app')
 
 # 命令行操作
 def register_commands(app):
@@ -40,6 +41,9 @@ def register_commands(app):
     # 创建知识图谱
     app.cli.command("init-kg")(commands.init_kg)
 
+    # 创建知识图谱2
+    app.cli.command("init-kg2")(commands.init_kg2)
+
 
 # 运行注册命令
 register_commands(app)
@@ -49,7 +53,7 @@ with app.app_context():
     with db.engine.connect() as conn:
         rs = conn.execute(text("select 1"))
         print(rs.fetchone())
-        print("数据库连接成功！")
+        print("mysql数据库连接成功！")
 
 if __name__ == '__main__':
     app.run()

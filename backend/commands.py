@@ -1,6 +1,7 @@
 from .extensions import neo4j
 from .models.sql_user import User
 from .models.kg import Airport
+from .models.airport_kg import Airport2
 
 
 # 初始化mysql数据库
@@ -29,3 +30,9 @@ def init_kg():
     except Exception as e:
         print("初始化失败！", str(e))
 
+
+def init_kg2():
+    try:
+        Airport2.init_kg2()
+    except Exception as e:
+        print("初始化失败！", str(e))
