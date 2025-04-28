@@ -20,6 +20,9 @@ api.interceptors.response.use(
     response => {
         console.log("进入响应拦截器")
         console.log('Axios response:', response)
+        /*响应格式为
+        config:
+        data:*/
     // 统一处理成功响应
      const { data } = response
   // 统一提取业务数据（兼容有无 data 包裹的情况）
@@ -113,7 +116,7 @@ export const login = async (loginData) => {
 // 忘记密码
 export const forgotPassword = (phone) => {
   return api.post('/auth/forgot-password', { phone });
-};
+}
 
 // 重置密码
 export const resetPassword = (data) => {

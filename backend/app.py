@@ -25,7 +25,7 @@ login_manager.login_message_category = 'info'
 # 注册蓝图
 # 所有auth_bp的路由自动添加前缀/auth
 app.register_blueprint(auth_bp, url_prefix='/auth')
-app.register_blueprint(board_bp, url_prefix='/app')
+app.register_blueprint(board_bp)
 app.register_blueprint(emergency_bp, url_prefix='/app')
 
 # 命令行操作

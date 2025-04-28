@@ -9,10 +9,11 @@ from ..utils.response import success_response, error_response
 board_bp = Blueprint('dashboard', __name__)
 
 
-@board_bp.route('/predict', methods=['POST'])
+@board_bp.route('/emergency/simulate', methods=['POST'])
 def predict():
     try:
         data = request.get_json()
+        print(f"Received data: {data}")
         position_id = int(data['position_id'])
         event_type = data['event_type']
         severity = float(data['severity'])
@@ -27,13 +28,14 @@ def predict():
         if predictions is None:
             # return jsonify({"error": "Prediction failed"}), 500
             return error_response(message='Prediction failed', code=400)
-        # 将预测结果转换为JSON格式
+        # 将预测结果转换为JSON格式,确保所有数值都是Python原生类型
         result = [
             {
-                "position_id": pred['position_id'],
-                "impact_probability": pred['impact_probability'],
-                "is_affected": pred['is_affected'],
-                "predicted_impact_time_minutes": pred['predicted_impact_time_minutes']
+                "position_id": int(pred['position_id']),
+                "impact_probability": float(pred['impact_probability']),  # 显式转换为float
+                "is_affected": bool(pred['is_affected']),  # 显式转换为bool
+                # "predicted_impact_time_minutes": float(pred['predicted_impact_time_minutes'])
+                "predicted_impact_time_minutes": int(pred['predicted_impact_time_minutes'])
             }
             for pred in predictions
         ]

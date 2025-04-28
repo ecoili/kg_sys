@@ -21,11 +21,22 @@ export default defineConfig({
         target: 'http://127.0.0.1:5000',  // Flask地址,一定要用127.0.0.1强制使用ipv4!!!不然默认使用ipv6请求到不了后端！！！
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''), // 移除/api前缀
-        configure: (proxy) => {
-          proxy.on('proxyReq', (req) => {
-            console.log('[Vite Proxy] 请求路径:', req.path)  // 检查重写后的路径
-          });
-        }
+        // configure: (proxy) => {
+        //   proxy.on('proxyReq', (req) => {
+        //     console.log('[Vite Proxy] 请求路径:', req.path)  // 检查重写后的路径
+        //   })
+        // }
+        configure: (proxy, options) => {
+        proxy.on('error', (err, req, res) => {
+          console.log('proxy error', err)
+        })
+        proxy.on('proxyReq', (proxyReq, req, res) => {
+          console.log('Sending Request to the Target:', req.method, req.url)
+        })
+        proxy.on('proxyRes', (proxyRes, req, res) => {
+          console.log('Received Response from the Target:', proxyRes.statusCode)
+        })
+      }
       }
     },
     watch: {

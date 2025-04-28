@@ -242,15 +242,45 @@ export default {
           severity: form.severity,
           duration: form.duration
         })
+        // 临时使用模拟数据
+        // const res = {
+        //     data: {
+        //       predictions: [
+        //         { position_id: 'P001', impact_probability: 0.8, is_affected: true, predicted_impact_time_minutes: 30 }
+        //       ],
+        //       schedule: [
+        //         { task_id: 'T001', position_id: 'P002', position_name: '备用阵位1' }
+        //       ]
+        //     }
+        // }
+        /* res直接就是对象数组，不需要用.data获取！！！目前只有preditions,所以只有一个数组
+        将来还有schedule数组，就要用下标0/1选取相应的数据了
+        * */
+        console.log('完整API响应:', res) // 添加这行查看完整响应
+        // console.log("响应数据类型:", res.data.type)
+        console.log('响应数据:', res.data) // 查看data结构:undefined
+        // console.log('第一个预测项:', res.data[0])
+        // 确保返回的是数组
+        if (!Array.isArray(res)) {
+          throw new Error('返回数据格式不正确，预期是数组')
+        }
 
-        predictions.value = res.data.predictions || []
-        schedule.value = res.data.schedule || []
+        // 转换数据确保类型正确
+        predictions.value = res.map(item => ({
+          position_id: String(item.position_id), // 确保是字符串
+          impact_probability: Number(item.impact_probability),
+          is_affected: Boolean(item.is_affected),
+          predicted_impact_time_minutes: Number(item.predicted_impact_time_minutes)
+        }))
+
+        // predictions.value = res.data || []  // 后端返回的data就是预测结果数组
+        schedule.value = []  // 如果没有调度结果，初始化为空数组
         showResults.value = true
 
         ElMessage.success('模拟成功')
       } catch (error) {
-        console.error('模拟失败:', error)
-        ElMessage.error(error.message || '模拟失败')
+        console.error('模拟失败详情:', error.response?.data || error)
+        ElMessage.error(error.response?.data?.message || error.message || '模拟失败')
       } finally {
         submitting.value = false
       }
