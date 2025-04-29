@@ -1,3 +1,4 @@
+import os
 # 配置信息
 # MYSQL所在的主机名
 HOSTNAME = "127.0.0.1"
@@ -21,3 +22,14 @@ NEO4J_URI = "bolt://localhost:7687"
 NEO4J_AUTH = ("neo4j", "neo4jpwd")
 # NEO4J_DATABASE = "neo4j"  # 默认数据库名（Neo4j 4.0+支持多数据库）我的是3.5.15
 
+
+# 获取项目根目录
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# print("根目录为:", BASE_DIR)
+# 模型相关配置
+MODEL_DIR = os.path.join(BASE_DIR, 'backend', 'models')
+MODEL_PATH = os.path.join(MODEL_DIR, 'pths', 'rgcn_gat_transformer_multitask.pth')
+POSITIONS_FILE = os.path.join(MODEL_DIR, 'data', 'positions.csv')
+RELATIONS_FILE = os.path.join(MODEL_DIR, 'data', 'relations.csv')
+EVENTS_FILE = os.path.join(MODEL_DIR, 'data', 'synthetic_events.csv')
+IMPACT_FILE = os.path.join(MODEL_DIR, 'data', 'synthetic_impact.csv')

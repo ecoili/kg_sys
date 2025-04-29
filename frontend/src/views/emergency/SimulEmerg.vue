@@ -19,7 +19,7 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="发生特情的阵位ID" prop="position_id">
+        <el-form-item label="阵位ID" prop="position_id">
           <el-input
             v-model="form.position_id"
             placeholder="请输入阵位ID"
@@ -125,7 +125,7 @@
 <script>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { simulateEmergency } from '@/api/emergency'
+import { simulateEmergency, simulateEmergency2 } from '@/api/emerg_fe.js'
 import { parse } from 'papaparse'
 
 export default {
@@ -236,8 +236,15 @@ export default {
         await formRef.value.validate()
         submitting.value = true
 
-        const res = await simulateEmergency({
-          position_id: form.position_id,
+        // const res = await simulateEmergency({
+        //   position_id: form.position_id,
+        //   event_type: form.event_type,
+        //   severity: form.severity,
+        //   duration: form.duration
+        // })
+
+        const res = await simulateEmergency2({
+          position_id: String(form.position_id),  //显示转换为字符串
           event_type: form.event_type,
           severity: form.severity,
           duration: form.duration

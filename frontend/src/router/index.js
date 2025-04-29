@@ -57,28 +57,22 @@ const routes = [
         path: 'emergency',
         name: 'Emergency',
         meta: { title: '特情处置', icon: 'el-icon-warning' },
-        redirect: '/app/emergency/report',
+        redirect: '/app/emergency/simulsingpage',
         children: [
           {
-            path: 'report',
-            name: 'EmergencyReport',
-            meta: { title: '特情报备' },
-            component: () => import('@/views/emergency/Report.vue')
+            path: 'simulsingpage',
+            name: 'Simulation',
+            meta: { title: '特情模拟-单阵位', icon: 'el-icon-s-promotion' },
+            component: () => import('@/views/emergency/SimulEmerg.vue')
           },
           {
-            path: 'process',
-            name: 'EmergencyProcess',
-            meta: { title: '处置流程' },
-            component: () => import('@/views/emergency/Process.vue')
+            path: 'simulmultipage',
+            name: 'SimulationMulti',
+            meta: { title: '特情模拟-多阵位', icon: 'el-icon-s-promotion' },
+            component: () => import('@/views/emergency/SimulEmergMul.vue')
           }
         ]
       },
-      {
-        path: 'simulpage',
-        name: 'Simulation',
-        meta: { title: '特情模拟', icon: 'el-icon-s-promotion' },
-        component: () => import('@/views/emergency/SimulEmerg.vue')
-      }
     ]
 },
   {

@@ -8,6 +8,16 @@ export const simulateEmergency = async (data) => {
   // 不需要额外try-catch，因为错误已在拦截器统一处理
 }
 
+export const simulateEmergency2 = async (data) => {
+  return await api.post('/simulate/test', data)
+  // 不需要额外try-catch，因为错误已在拦截器统一处理
+}
+
+export const simulateMultitaskEmergency = async (data) => {
+  return await api.post('/simulateMulti/test', data)
+  // 不需要额外try-catch，因为错误已在拦截器统一处理
+}
+
 // 其他emergency相关API可以按照相同模式添加
 // 其他emergency相关API
 export const getEmergencyList = async (params) => {

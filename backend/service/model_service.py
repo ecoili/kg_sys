@@ -1,47 +1,151 @@
+import os
 import random
 from datetime import datetime
+
 import torch
 from deap import base, creator, tools, algorithms
-from backend.service.model_loader import model, node_id_map, event_type_map, graph_data, reverse_node_id_map
+from sklearn.preprocessing import StandardScaler
+
+from backend.service.model_loader import model, node_id_map, event_type_map, graph_data, reverse_node_id_map, \
+    load_prediction_model
 from backend.extensions import neo4j
 import pandas as pd
 from py2neo import Node, Relationship
 from torch_geometric.data import Data
 
+from backend.service.station_impact_prediction_multitask import RGCN_GAT_Transformer
+
+
 class PredictionService:
-    def __init__(self, model_path, positions_file, relations_file):
+    # def __init__(self, model_path=None, positions_file=None, relations_file=None):
+        # 从配置中获取默认路径
+        # from backend import config
+        # self.model_path = model_path or config.MODEL_PATH
+        # self.positions_file = positions_file or config.POSITIONS_FILE
+        # self.relations_file = relations_file or config.RELATIONS_FILE
+        # self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # # self.model = self._load_model(model_path)
+        # self.graph_data, self.node_id_map, self.reverse_node_id_map, self.event_type_map = self._prepare_graph_data(
+        #     positions_file, relations_file)
+
+
+    # def _load_model(self, model_path):
+    #     # 添加路径检查
+    #     if not os.path.exists(model_path):
+    #         raise FileNotFoundError(f"模型文件不存在: {model_path}")
+    #     checkpoint = torch.load(model_path, map_location=self.device)
+    #
+    #     # 初始化模型结构 - 需要与训练时的模型结构一致
+    #     model = RGCN_GAT_Transformer(
+    #         node_feat_dim=5,  # 根据positions.csv中的特征数量
+    #         hidden_dim=192,  # 与训练配置一致
+    #         context_dim=64,
+    #         embed_dim_event_type=32,
+    #         num_event_types=len(event_type_map),
+    #         num_relations=2,  # connection和influence两种关系
+    #         num_bases=8,
+    #         transformer_nhead=4,
+    #         transformer_layers=2,
+    #         num_nodes=len(node_id_map),
+    #         dropout=0.25
+    #     )
+    #
+    #     model.load_state_dict(checkpoint['model_state_dict'])
+    #     model.to(self.device)
+    #     model.eval()
+    #     return model
+    def __init__(self, model_path=None, positions_file=None, relations_file=None, events_file=None, impact_file=None):
+
+        from backend import config
+        self.model_path = model_path or config.MODEL_PATH
+        self.positions_file = positions_file or config.POSITIONS_FILE
+        self.relations_file = relations_file or config.RELATIONS_FILE
+        self.events_file = events_file or config.EVENTS_FILE
+        self.impact_file = impact_file or config.IMPACT_FILE
+
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model = self._load_model(model_path)
-        self.graph_data, self.node_id_map, self.reverse_node_id_map, self.event_type_map = self._prepare_graph_data(
-            positions_file, relations_file)
 
-    def _load_model(self, model_path):
-        checkpoint = torch.load(model_path, map_location=self.device)
-        model = ...  # 模型初始化代码
-        model.load_state_dict(checkpoint['model_state_dict'])
-        model.eval()
-        return model
-
-    def _prepare_graph_data(self, positions_file, relations_file):
-        # 加载并预处理图数据
-        positions_df = pd.read_csv(positions_file)
-        relations_df = pd.read_csv(relations_file)
-
-        # 节点特征处理
-        node_features = ...  # 特征标准化处理
-
-        # 边处理
-        edge_index = ...
-        edge_type = ...
-
-        graph_data = Data(
-            x=torch.tensor(node_features, dtype=torch.float),
-            edge_index=edge_index,
-            edge_type=edge_type,
-            num_nodes=len(node_id_map)
+        # 直接使用已处理好的映射,不需要额外类型转换
+        self.model, self.node_id_map, self.event_type_map, self.graph_data, self.reverse_node_id_map = load_prediction_model(
+            self.model_path,
+            self.positions_file,
+            self.relations_file,
+            self.events_file,
+            self.impact_file
         )
 
-        return graph_data, node_id_map, reverse_node_id_map, event_type_map
+
+        self.model.to(self.device)
+        self.model.eval()
+        # 调试打印
+        print(f"Loaded positions: {len(self.node_id_map)}")
+        print("Sample position IDs:", list(self.node_id_map.keys())[:10])
+        if '25200' not in self.node_id_map:
+            print("Warning: 25200 not found in node_id_map!")
+
+    def predict_impact(self, source_position_id, event_type, severity, duration):
+        """更健壮的预测方法，确保所有输入张量形状正确"""
+        try:
+            # 确保所有ID都转换为字符串类型处理
+            source_position_id = str(source_position_id)
+
+            # 参数验证
+            if source_position_id not in self.node_id_map:
+                raise ValueError(f"Invalid source_position_id: {source_position_id}")
+            if event_type not in self.event_type_map:
+                raise ValueError(f"Invalid event_type: {event_type}")
+
+            # 准备输入数据 - 特别注意维度处理
+            source_node_idx = self.node_id_map[source_position_id]
+            event_type_idx = self.event_type_map[event_type]
+
+            # 创建形状为 [batch_size=1, 1] 的输入张量
+            source_nodes_tensor = torch.tensor([[source_node_idx]], device=self.device)  # shape: [1, 1]
+            event_types_tensor = torch.tensor([[event_type_idx]], device=self.device)  # shape: [1, 1]
+
+            # 修改severity和duration的形状处理
+            severity_tensor = torch.tensor([[severity]], device=self.device).float()  # shape: [1, 1]
+            duration_tensor = torch.tensor([[duration]], device=self.device).float()  # shape: [1, 1]
+
+            # 调试打印
+            print(f"Input shapes - source_nodes: {source_nodes_tensor.shape}, "
+                  f"event_types: {event_types_tensor.shape}, "
+                  f"severity: {severity_tensor.shape}, "
+                  f"duration: {duration_tensor.shape}")
+
+            # 调用模型预测
+            with torch.no_grad():
+                outputs = self.model(
+                    self.graph_data.x.to(self.device),
+                    self.graph_data.edge_index.to(self.device),
+                    self.graph_data.edge_type.to(self.device),
+                    source_nodes_tensor,
+                    event_types_tensor,
+                    severity_tensor,
+                    duration_tensor
+                )
+
+            # 处理预测结果
+            impact_probs = torch.sigmoid(outputs[0][0])  # 获取分类概率
+            impact_times = outputs[1][0]  # 获取回归时间
+
+            predictions = []
+            for node_idx in range(len(impact_probs)):
+                position_id = str(self.reverse_node_id_map[node_idx])
+                predictions.append({
+                    "position_id": position_id,
+                    "impact_probability": impact_probs[node_idx].item(),
+                    "is_affected": 1 if impact_probs[node_idx] > 0.5 else 0,
+                    "predicted_impact_time_minutes": max(0, impact_times[node_idx].item())
+                })
+
+            return predictions
+
+        except Exception as e:
+            print(f"预测失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise ValueError(f"预测过程中发生错误: {str(e)}") from e
 
     # 预测影响函数
     # def predict_impact(self, source_position_id, event_type, severity, duration):
@@ -52,44 +156,170 @@ class PredictionService:
     #     self._save_to_neo4j(source_position_id, event_type, predictions)
     #
     #     return predictions
+    # def predict_impact(self, source_position_id, event_type, severity, duration):
+    #     """修改后的预测方法"""
+    #     try:
+    #         # 1. 准备输入数据
+    #         source_node_idx = self.node_id_map[source_position_id]
+    #         event_type_idx = self.event_type_map[event_type]
+    #
+    #         # 2. 调用模型预测
+    #         with torch.no_grad():
+    #             impact_probs, impact_times = self.model(
+    #                 self.graph_data.x.to(self.device),
+    #                 self.graph_data.edge_index.to(self.device),
+    #                 torch.tensor([source_node_idx], device=self.device),
+    #                 torch.tensor([event_type_idx], device=self.device),
+    #                 torch.tensor([severity], device=self.device).float(),
+    #                 torch.tensor([duration], device=self.device).float()
+    #             )
+    #
+    #         # 3. 处理预测结果
+    #         predictions = []
+    #         for i, (prob, time) in enumerate(zip(impact_probs[0], impact_times[0])):
+    #             position_id = str(self.reverse_node_id_map[i])
+    #             predictions.append({
+    #                 "position_id": position_id,
+    #                 "impact_probability": prob.item(),
+    #                 "is_affected": 1 if prob > 0.5 else 0,
+    #                 "predicted_impact_time_minutes": time.item()
+    #             })
+    #
+    #         # 4. 保存到知识图谱
+    #         self._save_to_neo4j(source_position_id, event_type, severity, predictions)
+    #
+    #         return predictions
+    #
+    #     except Exception as e:
+    #         print(f"预测失败: {str(e)}")
+    #         raise
     def predict_impact(self, source_position_id, event_type, severity, duration):
-        """修改后的预测方法"""
+        """更健壮的预测方法，确保所有输入张量形状正确"""
         try:
-            # 1. 准备输入数据
+            # 确保所有ID都转换为字符串类型处理
+            source_position_id = str(source_position_id)
+
+            # 参数验证
+            if source_position_id not in self.node_id_map:
+                raise ValueError(f"Invalid source_position_id: {source_position_id}")
+            if event_type not in self.event_type_map:
+                raise ValueError(f"Invalid event_type: {event_type}")
+
+            # 准备输入数据 - 特别注意维度处理
             source_node_idx = self.node_id_map[source_position_id]
             event_type_idx = self.event_type_map[event_type]
 
-            # 2. 调用模型预测
+            # 创建形状为 [batch_size=1, 1] 的输入张量
+            source_nodes_tensor = torch.tensor([[source_node_idx]], device=self.device)  # shape: [1, 1]
+            event_types_tensor = torch.tensor([[event_type_idx]], device=self.device)  # shape: [1, 1]
+            severity_tensor = torch.tensor([[severity]], device=self.device).float()  # shape: [1, 1]
+            duration_tensor = torch.tensor([[duration]], device=self.device).float()  # shape: [1, 1]
+
+            # 调用模型预测
             with torch.no_grad():
-                impact_probs, impact_times = self.model(
+                outputs, _ = self.model(
                     self.graph_data.x.to(self.device),
                     self.graph_data.edge_index.to(self.device),
-                    torch.tensor([source_node_idx], device=self.device),
-                    torch.tensor([event_type_idx], device=self.device),
-                    torch.tensor([severity], device=self.device).float(),
-                    torch.tensor([duration], device=self.device).float()
+                    self.graph_data.edge_type.to(self.device),
+                    source_nodes_tensor,
+                    event_types_tensor,
+                    severity_tensor,
+                    duration_tensor
                 )
 
-            # 3. 处理预测结果
+            # 处理预测结果 - 模型输出形状应为 [1, num_targets, 2]
+            impact_logits = outputs[0, :, 0]  # 分类logits
+            impact_times = outputs[0, :, 1]  # 回归时间
+
+            impact_probs = torch.sigmoid(impact_logits)  # 获取分类概率
+
             predictions = []
-            for i, (prob, time) in enumerate(zip(impact_probs[0], impact_times[0])):
-                position_id = self.reverse_node_id_map[i]
+            for node_idx in range(len(impact_probs)):
+                position_id = str(self.reverse_node_id_map[node_idx])
                 predictions.append({
                     "position_id": position_id,
-                    "impact_probability": prob.item(),
-                    "is_affected": 1 if prob > 0.5 else 0,
-                    "predicted_impact_time_minutes": time.item()
+                    "impact_probability": impact_probs[node_idx].item(),  # 单个概率值
+                    "is_affected": 1 if impact_probs[node_idx] > 0.5 else 0,
+                    "predicted_impact_time_minutes": max(0, impact_times[node_idx].item())  # 单个时间值
                 })
-
-            # 4. 保存到知识图谱
-            self._save_to_neo4j(source_position_id, event_type, severity, predictions)
 
             return predictions
 
         except Exception as e:
             print(f"预测失败: {str(e)}")
-            raise
+            import traceback
+            traceback.print_exc()
+            raise ValueError(f"预测过程中发生错误: {str(e)}") from e
 
+    # 在PredictionService类中添加多任务预测方法
+    def predict_multitask_impact(self, source_position_ids, event_types, severities, durations):
+        """多任务预测方法"""
+        try:
+            # 验证输入参数
+            if len(source_position_ids) != len(event_types) != len(severities) != len(durations):
+                raise ValueError("所有输入列表的长度必须一致")
+
+            # 准备批量输入数据
+            batch_size = len(source_position_ids)
+            source_node_indices = []
+            event_type_indices = []
+            severity_tensor = []
+            duration_tensor = []
+
+            for i in range(batch_size):
+                # 确保所有ID都转换为字符串类型处理
+                pos_id = str(source_position_ids[i])
+                if pos_id not in self.node_id_map:
+                    raise ValueError(f"无效的阵位ID: {pos_id}")
+
+                event_type = event_types[i]
+                if event_type not in self.event_type_map:
+                    raise ValueError(f"无效的事件类型: {event_type}")
+
+                source_node_indices.append(self.node_id_map[pos_id])
+                event_type_indices.append(self.event_type_map[event_type])
+                severity_tensor.append(float(severities[i]))
+                duration_tensor.append(float(durations[i]))
+
+            # 转换为张量
+            source_node_indices = torch.tensor(source_node_indices, device=self.device)
+            event_type_indices = torch.tensor(event_type_indices, device=self.device)
+            severity_tensor = torch.tensor(severity_tensor, device=self.device).unsqueeze(1)
+            duration_tensor = torch.tensor(duration_tensor, device=self.device).unsqueeze(1)
+
+            # 批量预测
+            with torch.no_grad():
+                impact_probs, impact_times = self.model(
+                    self.graph_data.x.to(self.device),
+                    self.graph_data.edge_index.to(self.device),
+                    self.graph_data.edge_type.to(self.device),
+                    source_node_indices,
+                    event_type_indices,
+                    severity_tensor,
+                    duration_tensor
+                )
+
+            # 处理预测结果
+            all_predictions = []
+            for batch_idx in range(batch_size):
+                predictions = []
+                for node_idx, (prob, time) in enumerate(zip(impact_probs[batch_idx], impact_times[batch_idx])):
+                    position_id = str(self.reverse_node_id_map[node_idx])
+                    predictions.append({
+                        "position_id": position_id,
+                        "impact_probability": prob.item(),
+                        "is_affected": 1 if prob > 0.5 else 0,
+                        "predicted_impact_time_minutes": max(0, time.item()),
+                        "source_position_id": source_position_ids[batch_idx],
+                        "event_type": event_types[batch_idx]
+                    })
+                all_predictions.append(predictions)
+
+            return all_predictions
+
+        except Exception as e:
+            print(f"多任务预测失败: {str(e)}")
+            raise
 
     def _save_to_neo4j(self, source_position_id, event_type, severity, predictions):
         # 连接到Neo4j

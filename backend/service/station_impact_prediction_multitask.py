@@ -232,6 +232,12 @@ class RGCN_GAT_Transformer(nn.Module):
     def forward(self, node_feats, edge_index, edge_type, source_nodes,
                 event_types, severities, durations,
                 time_diffs=None): # time_diffs input still optional, not used in forward directly
+        # 检查输入形状
+        assert source_nodes.dim() == 2, f"source_nodes should be 2D, got {source_nodes.dim()}"
+        assert event_types.dim() == 2, f"event_types should be 2D, got {event_types.dim()}"
+        assert severities.dim() == 2, f"severities should be 2D, got {severities.dim()}"
+        assert durations.dim() == 2, f"durations should be 2D, got {durations.dim()}"
+
         batch_size = source_nodes.size(0)
         device = node_feats.device
 
@@ -241,11 +247,27 @@ class RGCN_GAT_Transformer(nn.Module):
         x = self.rgcn_gat2(x, edge_index, edge_type)
 
         # 2. Create Event Context
-        type_embeds = self.event_type_embedding(event_types)
-        sev_unsqueezed = severities.unsqueeze(1).float()
-        dur_unsqueezed = durations.unsqueeze(1).float()
-        raw_context = torch.cat([type_embeds, sev_unsqueezed, dur_unsqueezed], dim=1)
+        # type_embeds = self.event_type_embedding(event_types)
+        # sev_unsqueezed = severities.unsqueeze(1).float()
+        # dur_unsqueezed = durations.unsqueeze(1).float()
+        # raw_context = torch.cat([type_embeds, sev_unsqueezed, dur_unsqueezed], dim=1)
+        # event_contexts = self.event_context_proj(raw_context)
+
+        # 修改后
+        type_embeds = self.event_type_embedding(event_types.squeeze(1))  # shape: [batch_size, embed_dim]
+        sev_unsqueezed = severities.float()  # shape: [batch_size, 1]
+        dur_unsqueezed = durations.float()  # shape: [batch_size, 1]
+
+        # 确保维度匹配
+        raw_context = torch.cat([
+            type_embeds,
+            sev_unsqueezed,
+            dur_unsqueezed
+        ], dim=1)
+
         event_contexts = self.event_context_proj(raw_context)
+
+
 
         # 3. Prepare sequences for Transformer
         sequences = []

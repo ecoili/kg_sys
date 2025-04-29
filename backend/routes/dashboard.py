@@ -19,11 +19,19 @@ def predict():
         severity = float(data['severity'])
         duration = float(data['duration'])
 
-        # 调用预测函数
-        predictions = predict_single_position(
-            model, graph_data, position_id, event_type, severity, duration,
-            node_id_map, event_type_map, reverse_node_id_map
+        #  调用预测函数 方式一
+        # predictions = predict_single_position(
+        #     model, graph_data, position_id, event_type, severity, duration,
+        #     node_id_map, event_type_map, reverse_node_id_map
+        # )
+
+        # 使用PredictionService进行预测 方式二
+        service = PredictionService(
+            model_path="E:/py_prjs/flask3/backend/models/pths/rgcn_gat_transformer_multitask.pth",
+            positions_file="E:/py_prjs/flask3/backend/models/data/positions.csv",
+            relations_file="E:/py_prjs/flask3/backend/models/data/relations.csv"
         )
+        predictions = service.predict_impact(position_id, event_type, severity, duration)
 
         if predictions is None:
             # return jsonify({"error": "Prediction failed"}), 500
