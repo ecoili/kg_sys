@@ -4,12 +4,13 @@ from py2neo import Graph, Node, Relationship
 from backend.extensions import neo4j
 import random
 from tqdm import tqdm
+from backend import config
 
 
 # 读取数据文件
-positions_df = pd.read_csv('E:/py_prjs/flask3/backend/models/data/positions.csv', encoding='utf-8')
-relations_df = pd.read_csv('E:/py_prjs/flask3/backend/models/data/relations.csv', encoding='utf-8')
-events_df = pd.read_csv('E:/py_prjs/flask3/backend/models/data/synthetic_events.csv', encoding='utf-8')
+positions_df = pd.read_csv(config.POSITIONS_FILE, encoding='utf-8')
+relations_df = pd.read_csv(config.RELATIONS_FILE, encoding='utf-8')
+events_df = pd.read_csv(config.EVENTS_FILE, encoding='utf-8')
 pos_name = {1: '跑道',
             2: '加油站',
             3: '供电站',
@@ -75,17 +76,24 @@ class Airport2:
 
     @staticmethod
     def create_positions():
+        # 创建计数器字典
+        position_counters = {pos_type: 1 for pos_type in pos_name.values()}
         # 创建阵位节点
         # 目前节点没有设置name属性(Neo4j默认用来显示节点名称的属性)，没有设置的话就不会显示节点名称
         # 后面定义一个字典存放阵位类型和名称的关系
         positions = []
         for _, row in positions_df.iterrows():
+            pos_type = pos_name[row['position_type']]
+            # 生成带编号的name
+            name = f"{pos_type}{position_counters[pos_type]}"
+            position_counters[pos_type] += 1
             position = Node("Position",
-                            id=row['position_id'],
-                            name=pos_name[row['position_type']],
+                            # 明确id为int类型
+                            id=int(row['position_id']),
+                            name=name,
                             x=row['x_coord'],
                             y=row['y_coord'],
-                            # type=row['position_type'],
+                            type=pos_name[row['position_type']],
                             type_identity=row['type_identifier'],
                             impt_lv=row['importance_level'],
                             flr_rate=row['failure_rate'],
@@ -114,16 +122,23 @@ class Airport2:
             "行李装卸": ["行李装卸点"],
             "测试": ["测试点"]
         }
+        # 创建任务计数器
+        task_counters = {task_type: 1 for task_type in task_types.keys()}
 
-        for i in range(45):
+        # for i in range(45): 增加任务数量
+        for i in range(100):
             task_type = random.choice(list(task_types.keys()))
+            task_name = f"{task_type}{task_counters[task_type]}"
+            task_counters[task_type] += 1
             task = Node(
                 "Task",
                 id=f"T{i + 1}",
-                name=task_type,
+                name=task_name,
                 type=task_type,
-                duration=random.randint(1, 5),
-                priority=random.randint(1, 3),
+                # duration=random.randint(1, 5),
+                # priority=random.randint(1, 3),
+                duration=random.randint(1, 10),
+                priority=random.randint(1, 5),
                 status="待分配",
                 # 新增约束属性（不涉及资源）
                 required_position_types=task_types[task_type],
@@ -187,20 +202,35 @@ class Airport2:
             # 查询匹配的阵位（使用name属性匹配）
             query = (
                 "MATCH (p:Position) "
-                "WHERE p.name IN $names "  # 使用name属性匹配中文名
+                "WHERE p.type IN $types "  # 使用type属性匹配中文名
                 "RETURN p"
             )
-            suitable_positions = list(neo4j.graph.run(query, names=required_names))
+            suitable_positions = list(neo4j.graph.run(query, types=required_names))
 
             if suitable_positions:
                 selected = random.choice(suitable_positions)
-                rel = Relationship(task, "ASSIGNED_TO", selected[0],  # 注意这里取第一个元素
+                position_node = selected[0]
+
+                # 获取当前阵位上的任务数
+                current_count = neo4j.graph.run("""
+                                    MATCH (p:Position)<-[:ASSIGNED_TO]-(t:Task)
+                                    WHERE p.id = $pos_id
+                                    RETURN count(t) as count
+                                    """, pos_id=position_node["id"]).evaluate()
+
+                if current_count >= position_node["sup_num"]:
+                    continue  # 跳过已满的阵位
+
+                # 添加关系
+                rel = Relationship(task, "ASSIGNED_TO", position_node,
                                    assigned_time=datetime.now().isoformat())
                 neo4j.graph.create(rel)
+
+                # 同时添加current_position属性（存储position_id）
+                task["current_position"] = position_node["id"]
+                task["current_position_name"] = position_node["name"]
+                task["required_resources"] = []
                 task["status"] = "已分配"
-                neo4j.graph.push(task)
-            else:
-                task["status"] = "无可用阵位"
                 neo4j.graph.push(task)
 
 

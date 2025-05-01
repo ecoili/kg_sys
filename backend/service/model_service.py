@@ -11,6 +11,7 @@ from backend.service.model_loader import model, node_id_map, event_type_map, gra
 from backend.extensions import neo4j
 import pandas as pd
 from py2neo import Node, Relationship
+
 from torch_geometric.data import Data
 
 from backend.service.station_impact_prediction_multitask import RGCN_GAT_Transformer
@@ -83,116 +84,6 @@ class PredictionService:
         if '25200' not in self.node_id_map:
             print("Warning: 25200 not found in node_id_map!")
 
-    def predict_impact(self, source_position_id, event_type, severity, duration):
-        """更健壮的预测方法，确保所有输入张量形状正确"""
-        try:
-            # 确保所有ID都转换为字符串类型处理
-            source_position_id = str(source_position_id)
-
-            # 参数验证
-            if source_position_id not in self.node_id_map:
-                raise ValueError(f"Invalid source_position_id: {source_position_id}")
-            if event_type not in self.event_type_map:
-                raise ValueError(f"Invalid event_type: {event_type}")
-
-            # 准备输入数据 - 特别注意维度处理
-            source_node_idx = self.node_id_map[source_position_id]
-            event_type_idx = self.event_type_map[event_type]
-
-            # 创建形状为 [batch_size=1, 1] 的输入张量
-            source_nodes_tensor = torch.tensor([[source_node_idx]], device=self.device)  # shape: [1, 1]
-            event_types_tensor = torch.tensor([[event_type_idx]], device=self.device)  # shape: [1, 1]
-
-            # 修改severity和duration的形状处理
-            severity_tensor = torch.tensor([[severity]], device=self.device).float()  # shape: [1, 1]
-            duration_tensor = torch.tensor([[duration]], device=self.device).float()  # shape: [1, 1]
-
-            # 调试打印
-            print(f"Input shapes - source_nodes: {source_nodes_tensor.shape}, "
-                  f"event_types: {event_types_tensor.shape}, "
-                  f"severity: {severity_tensor.shape}, "
-                  f"duration: {duration_tensor.shape}")
-
-            # 调用模型预测
-            with torch.no_grad():
-                outputs = self.model(
-                    self.graph_data.x.to(self.device),
-                    self.graph_data.edge_index.to(self.device),
-                    self.graph_data.edge_type.to(self.device),
-                    source_nodes_tensor,
-                    event_types_tensor,
-                    severity_tensor,
-                    duration_tensor
-                )
-
-            # 处理预测结果
-            impact_probs = torch.sigmoid(outputs[0][0])  # 获取分类概率
-            impact_times = outputs[1][0]  # 获取回归时间
-
-            predictions = []
-            for node_idx in range(len(impact_probs)):
-                position_id = str(self.reverse_node_id_map[node_idx])
-                predictions.append({
-                    "position_id": position_id,
-                    "impact_probability": impact_probs[node_idx].item(),
-                    "is_affected": 1 if impact_probs[node_idx] > 0.5 else 0,
-                    "predicted_impact_time_minutes": max(0, impact_times[node_idx].item())
-                })
-
-            return predictions
-
-        except Exception as e:
-            print(f"预测失败: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            raise ValueError(f"预测过程中发生错误: {str(e)}") from e
-
-    # 预测影响函数
-    # def predict_impact(self, source_position_id, event_type, severity, duration):
-    #     # 调用预测函数
-    #     predictions = ...  # 预测结果
-    #
-    #     # 将预测结果保存到知识图谱
-    #     self._save_to_neo4j(source_position_id, event_type, predictions)
-    #
-    #     return predictions
-    # def predict_impact(self, source_position_id, event_type, severity, duration):
-    #     """修改后的预测方法"""
-    #     try:
-    #         # 1. 准备输入数据
-    #         source_node_idx = self.node_id_map[source_position_id]
-    #         event_type_idx = self.event_type_map[event_type]
-    #
-    #         # 2. 调用模型预测
-    #         with torch.no_grad():
-    #             impact_probs, impact_times = self.model(
-    #                 self.graph_data.x.to(self.device),
-    #                 self.graph_data.edge_index.to(self.device),
-    #                 torch.tensor([source_node_idx], device=self.device),
-    #                 torch.tensor([event_type_idx], device=self.device),
-    #                 torch.tensor([severity], device=self.device).float(),
-    #                 torch.tensor([duration], device=self.device).float()
-    #             )
-    #
-    #         # 3. 处理预测结果
-    #         predictions = []
-    #         for i, (prob, time) in enumerate(zip(impact_probs[0], impact_times[0])):
-    #             position_id = str(self.reverse_node_id_map[i])
-    #             predictions.append({
-    #                 "position_id": position_id,
-    #                 "impact_probability": prob.item(),
-    #                 "is_affected": 1 if prob > 0.5 else 0,
-    #                 "predicted_impact_time_minutes": time.item()
-    #             })
-    #
-    #         # 4. 保存到知识图谱
-    #         self._save_to_neo4j(source_position_id, event_type, severity, predictions)
-    #
-    #         return predictions
-    #
-    #     except Exception as e:
-    #         print(f"预测失败: {str(e)}")
-    #         raise
     def predict_impact(self, source_position_id, event_type, severity, duration):
         """更健壮的预测方法，确保所有输入张量形状正确"""
         try:
@@ -349,45 +240,226 @@ class PredictionService:
                                               time_minutes=pred['predicted_impact_time_minutes'])
                     graph.create(impact_rel)
 
-    # def genetic_algorithm_schedule(self, predictions):
-    #     # 定义遗传算法的适应度函数
-    #     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-    #     creator.create("Individual", list, fitness=creator.FitnessMin)
-    #
-    #     # 初始化种群
-    #     toolbox = base.Toolbox()
-    #     toolbox.register("attr_bool", random.randint, 0, 1)
-    #     toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_bool, len(predictions))
-    #     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-    #
-    #     # 定义交叉和变异操作
-    #     toolbox.register("mate", tools.cxTwoPoint)
-    #     toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
-    #     toolbox.register("select", tools.selTournament, tournsize=3)
-    #
-    #     # 定义适应度函数
-    #     def evalSchedule(individual):
-    #         total_impact = sum(
-    #             pred['predicted_impact_time_minutes'] for pred, bit in zip(predictions, individual) if bit)
-    #         return total_impact,
-    #
-    #     toolbox.register("evaluate", evalSchedule)
-    #
-    #     # 运行遗传算法
-    #     population = toolbox.population(n=300)
-    #     algorithms.eaSimple(population, toolbox, cxpb=0.5, mutpb=0.2, ngen=40, verbose=False)
-    #
-    #     # 获取最优解
-    #     best_individual = tools.selBest(population, 1)[0]
-    #     return best_individual
     def genetic_algorithm_schedule(self, predictions):
-        """修改后的遗传算法调度"""
-        try:
-            # 1. 准备任务数据
-            tasks = list(neo4j.graph.nodes.match("Task").where("_.status = '待分配'"))
-            affected_positions = [p for p in predictions if p['is_affected'] == 1]
+        """基于遗传算法的任务调度优化方法
+        Args:
+            predictions: 预测结果列表，包含各阵位受影响情况
 
-            # 2. 定义遗传算法
+        Returns:
+            list: 最优调度方案，每个元素包含任务ID、原阵位、新阵位等信息
+        """
+        try:
+            # ==================== 1. 数据准备阶段 ====================
+            # 获取受影响阵位ID列表（概率>0.5且时间>0的阵位）
+            # affected_positions = [
+            #     str(p['position_id']) for p in predictions
+            #     if p['is_affected'] == 1 and p['predicted_impact_time_minutes'] > 0
+            # ]
+            # 降低调度阈值条件
+
+            # # 获取受影响阵位
+            # affected_positions = [
+            #     str(p['position_id']) for p in predictions
+            #     if p['impact_probability'] > 0.2 and p['predicted_impact_time_minutes'] > 0
+            # ]
+            # 转换受影响阵位ID为整数类型
+            affected_positions = [
+                int(p['position_id']) for p in predictions
+                if p['impact_probability'] > 0.2 and p['predicted_impact_time_minutes'] > 0
+            ]
+
+            if not affected_positions:
+                return []
+
+            # 调试信息
+            print("\n=== 检查受影响阵位上的任务 ===")
+            check_query = """
+                    MATCH (p:Position {id: $pos_id})<-[:ASSIGNED_TO]-(t:Task)
+                    RETURN t.id as task_id, t.status as status
+                    """
+            for pos_id in affected_positions[:5]:  # 检查前5个
+                tasks = neo4j.graph.run(check_query, pos_id=pos_id).data()
+                print(f"阵位 {pos_id} 上的任务: {tasks}")
+
+            if not affected_positions:
+                print("没有检测到受影响阵位")
+                return []
+
+            # 在查询前打印参数验证
+            print(f"传递给Neo4j的affected_ids类型: {type(affected_positions[0])}")
+            print(f"示例affected_id值: {affected_positions[0]}")
+            print(f"25273是否在传递给Neo4j的参数中: {'25273' in affected_positions}")
+
+            # 确保参数类型正确
+            affected_ids = [id for id in affected_positions]
+            # 测试
+            total_tasks = neo4j.graph.run("MATCH (t:Task) RETURN count(t)").evaluate()
+            print(f"知识图谱中总任务数: {total_tasks}")
+
+            assigned_tasks = neo4j.graph.run("""
+            MATCH (t:Task)-[r:ASSIGNED_TO]->(p:Position)
+            RETURN t.id as task_id, p.id as position_id, t.status as status
+            LIMIT 10
+            """).data()
+            print("示例任务分配关系:", assigned_tasks)
+            # 在查询前添加验证查询
+            validation_query = """
+            UNWIND $affected_ids AS id
+            MATCH (p:Position {id: id})<-[:ASSIGNED_TO]-(t:Task)
+            RETURN id, count(t) AS task_count
+            """
+            affected_with_counts = neo4j.graph.run(validation_query, affected_ids=affected_positions).data()
+            print("各受影响阵位上的任务数量:", affected_with_counts)
+
+            # 查询需要调度的任务（当前分配在受影响阵位上的任务）
+            # 查询需要调度的任务
+            query = """
+                    MATCH (t:Task)-[r:ASSIGNED_TO]->(p:Position)
+                    WHERE p.id IN $affected_ids 
+                          AND t.status IN ['待分配', '已分配']
+                    RETURN t.id as task_id, 
+                           t.type as task_type,
+                           t.priority as priority,
+                           t.deadline as deadline,
+                           p.id as current_position,
+                           p.name as position_name,
+                           t.required_resources as required_resources,
+                           t.required_position_types as required_position_types
+                    """
+            try:
+                tasks = list(neo4j.graph.run(query, affected_ids=affected_positions))
+                print("成功进入到查询方法")
+            except Exception as e:
+                print(f"Neo4j查询失败: {str(e)}")
+                print(f"查询语句: {query}")
+                print(f"参数: affected_ids={affected_positions}")
+                return []
+            print(f"找到的任务数量: {len(tasks)}")
+            if tasks:
+                print(f"示例任务: {tasks[0]}")
+            if not tasks:
+                # return []  # 没有需要调度的任务
+                # 尝试查询所有状态的任务
+                backup_query = """
+                    MATCH (t:Task)-[r:ASSIGNED_TO]->(p:Position)
+                    WHERE p.id IN $affected_ids
+                    RETURN t.id as task_id, ...
+                    """
+                tasks = list(neo4j.graph.run(backup_query, affected_ids=affected_positions))
+                print("放宽条件后找到的任务数量:", len(tasks))
+
+            # 添加数据验证查询
+            data_check_query = """
+            MATCH (p:Position {id: "25273"})<-[:ASSIGNED_TO]-(t:Task)
+            RETURN count(t) as task_count
+            """
+            task_count = neo4j.graph.run(data_check_query).data()
+            print(f"阵位25273上的任务数量: {task_count}")
+
+            # 查询所有可用阵位（非受影响阵位） - 修复后的查询
+            query = """
+                    MATCH (p:Position)
+                    WHERE NOT p.id IN $affected_ids
+                    RETURN p
+                    """
+            try:
+                all_positions = [record['p'] for record in neo4j.graph.run(query, affected_ids=affected_positions)]
+            except Exception as e:
+                print(f"查询可用阵位失败: {str(e)}")
+                print(f"查询语句: {query}")
+                print(f"参数: affected_ids={affected_positions}")
+                raise
+            # 在genetic_algorithm_schedule方法开头添加
+            print(f"受影响阵位数量: {len(affected_positions)}")
+            print(f"需要调度的任务数量: {len(tasks)}")
+            print(f"可用阵位数量: {len(all_positions)}")
+            print(f"最高影响概率: {max(p['impact_probability'] for p in predictions)}")
+            print(f"平均影响概率: {sum(p['impact_probability'] for p in predictions) / len(predictions)}")
+
+            # ==================== 2. 遗传算法配置 ====================
+            # 添加距离计算辅助方法
+            def _calculate_distance(pos1, pos2):
+                """计算两个阵位间的距离"""
+                return ((pos1['x'] - pos2['x']) ** 2 + (pos1['y'] - pos2['y']) ** 2) ** 0.5
+
+            def _estimate_move_time(pos1, pos2, speed=0.5):
+                """预估移动时间（分钟）
+                speed: 单位 km/min (假设0.5km/min≈30km/h)
+                """
+                distance = _calculate_distance(pos1, pos2)  # 假设坐标单位为km
+                return distance / speed
+
+            def get_position_by_id(position_id):
+                """根据ID获取阵位节点"""
+                try:
+                    # 确保ID类型一致（根据文档1，应该是整数）
+                    position_id = int(position_id)
+                    position = neo4j.graph.nodes.match("Position", id=position_id).first()
+                    if not position:
+                        raise ValueError(f"未找到ID为 {position_id} 的阵位")
+                    return position
+                except (ValueError, TypeError) as e:
+                    raise ValueError(f"无效的阵位ID: {position_id}") from e
+            # 定义适应度函数（需要最大化）
+            def evaluate(individual):
+                """评估个体适应度
+                Args:
+                    individual: 二进制基因序列，1表示执行调度，0表示保持原状
+                Returns:
+                    float: 适应度得分
+                """
+                total_score = 0.0
+                penalty = 0  # 违规惩罚
+
+                for i, gene in enumerate(individual):
+                    if gene == 1:
+                        task = tasks[i]
+
+                        # 验证任务数据完整性
+                        if 'required_position_types' not in task:
+                            penalty -= 10  # 严重违规
+                            continue
+
+                        # 获取可用阵位
+                        suitable_positions = [
+                            p for p in all_positions
+                            if p['name'] in task['required_position_types']
+                        ]
+
+                        if not suitable_positions:
+                            penalty -= 5  # 无合适位置惩罚
+                            continue
+
+                        # 1. 基础得分计算
+                        original_pos = next((p for p in all_positions if p['id'] == task['current_position']), None)
+
+                        # 优先级得分 (30%)
+                        priority_score = task.get('priority', 1) * 0.3
+
+                        # 时间紧迫性 (30%)
+                        try:
+                            deadline = datetime.fromisoformat(task['deadline'])
+                            time_left = (deadline - datetime.now()).total_seconds() / 3600  # 小时为单位
+                            urgency_score = (1 / (time_left + 0.1)) * 0.3  # 防止除零
+                        except:
+                            urgency_score = 0
+
+                        # 距离得分 (40%)
+                        if original_pos:
+                            min_distance = min(
+                                _calculate_distance(original_pos, p)
+                                for p in suitable_positions
+                            )
+                            distance_score = (1 / (min_distance + 0.1)) * 0.4
+                        else:
+                            distance_score = 0
+
+                        total_score += priority_score + urgency_score + distance_score
+
+                return total_score + penalty,
+
+
+            # 遗传算法工具箱配置
             creator.create("FitnessMax", base.Fitness, weights=(1.0,))
             creator.create("Individual", list, fitness=creator.FitnessMax)
 
@@ -396,59 +468,79 @@ class PredictionService:
             toolbox.register("individual", tools.initRepeat, creator.Individual,
                              toolbox.attr_bool, len(tasks))
             toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-
-            # 3. 定义适应度函数
-            def evaluate(individual):
-                total_score = 0
-                for i, gene in enumerate(individual):
-                    if gene == 1:  # 选择该任务
-                        task = tasks[i]
-                        # 检查是否能在受影响阵位上执行
-                        suitable_positions = list(neo4j.graph.nodes.match("Position").where(
-                            f"_.type_identity IN {task['required_position_types']} AND _.id NOT IN {[p['position_id'] for p in affected_positions]}"
-                        ))
-                        if suitable_positions:
-                            total_score += task['priority']  # 优先级越高得分越高
-
-                return total_score,
-
             toolbox.register("evaluate", evaluate)
             toolbox.register("mate", tools.cxTwoPoint)
-            toolbox.register("mutate", tools.mutFlipBit, indpb=0.1)
+            toolbox.register("mutate", tools.mutFlipBit, indpb=0.15)
             toolbox.register("select", tools.selTournament, tournsize=3)
 
-            # 4. 运行算法
-            population = toolbox.population(n=100)
-            algorithms.eaSimple(population, toolbox, cxpb=0.7, mutpb=0.2, ngen=50, verbose=False)
+            # ==================== 3. 运行遗传算法 ====================
+            population = toolbox.population(n=200)
+            algorithms.eaSimple(
+                population, toolbox,
+                cxpb=0.7,  # 交叉概率
+                mutpb=0.2,  # 变异概率
+                ngen=50,  # 迭代次数
+                verbose=False
+            )
 
-            # 5. 获取最优解并执行分配
+            # 获取最优个体
             best_individual = tools.selBest(population, 1)[0]
-            schedule = []
+
+            # ==================== 4. 生成调度方案 ====================
+            schedule_plan = []
 
             for i, gene in enumerate(best_individual):
-                if gene == 1:
+                if gene == 1:  # 需要调度的任务
                     task = tasks[i]
-                    suitable_positions = list(neo4j.graph.nodes.match("Position").where(
-                        f"_.type_identity IN {task['required_position_types']} AND _.id NOT IN {[p['position_id'] for p in affected_positions]}"
-                    ))
+
+                    # 查找最佳替代阵位
+                    suitable_positions = [
+                        p for p in all_positions
+                        if p['name'] in task['required_position_types']
+                    ]
+
                     if suitable_positions:
-                        selected = random.choice(suitable_positions)
-                        rel = Relationship(task, "ASSIGNED_TO", selected,
-                                           assigned_time=datetime.now().isoformat())
-                        neo4j.graph.create(rel)
-                        task["status"] = "已分配"
-                        neo4j.graph.push(task)
-                        schedule.append({
-                            "task_id": task["id"],
-                            "position_id": selected["id"],
-                            "position_name": selected["name"]
+                        # 获取原始位置
+                        original_pos_id = task["current_position"]
+                        original_pos = get_position_by_id(original_pos_id)  # 需要实现这个函数
+                        # 选择资源匹配度最高的阵位
+                        best_pos = min(
+                            suitable_positions,
+                            key=lambda p: _calculate_distance(original_pos, p)
+                        )
+
+                        # 在Neo4j中更新任务分配
+                        neo4j.graph.run("""
+                        MATCH (t:Task {id: $task_id})-[r:ASSIGNED_TO]->(old:Position)
+                        DELETE r
+                        CREATE (t)-[:ASSIGNED_TO {
+                            assigned_time: datetime().toString(),
+                            reason: '原阵位受影响'
+                        }]->(new:Position {id: $new_pos_id})
+                        """, task_id=task['task_id'], new_pos_id=best_pos['id'])
+
+                        # 记录调度方案
+                        schedule_plan.append({
+                            'task_id': task['task_id'],
+                            'task_type': task['task_type'],
+                            'original_position': task['current_position'],
+                            'original_position_name': task['current_position_name'],
+                            'new_position': best_pos['id'],
+                            'new_position_name': best_pos['name'],
+                            'reason': f"原阵位受影响(概率{predictions[i]['impact_probability']:.1%})",
+                            'priority': task['priority'],
+                            'deadline': task['deadline'],
+                            'distance': _calculate_distance(original_pos, best_pos),
+                            'move_time': _estimate_move_time(original_pos, best_pos)
                         })
 
-            return schedule
+            return schedule_plan
 
         except Exception as e:
-            print(f"调度失败: {str(e)}")
-            raise
+            print(f"调度算法执行失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return []
 
     def schedule(self, source_position_id, event_type, severity, duration):
         predictions = self.predict_impact(source_position_id, event_type, severity, duration)

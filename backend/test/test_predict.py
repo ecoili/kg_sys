@@ -20,5 +20,27 @@ class MyTestCase(unittest.TestCase):
         assert graph_data.num_nodes > 0, "节点数量为0"
         print("✅ 数据预处理测试通过")
 
+    def test_neo4j(self):
+        from backend import app
+        def setUp(self):
+            self.app = app
+            self.app.config['TESTING'] = True
+            # self.client = self.app.test_client()
+
+        def test_neo4j(self):
+            with self.app.app_context():
+                from backend.extensions import neo4j
+                graph = neo4j.graph
+                self.assertIsNotNone(graph, "Neo4j 连接未初始化")
+
+                query = """
+                MATCH (p:Position) 
+                RETURN p.id, p.name
+                LIMIT 10
+                """
+                result = graph.run(query)
+                for pos in result:
+                    print(pos["p.id"], pos["p.name"])
+                self.assertTrue(result, "查询返回空结果")
 if __name__ == '__main__':
     unittest.main()

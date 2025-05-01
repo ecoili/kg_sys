@@ -6,11 +6,11 @@ from backend.extensions import neo4j
 from backend.service.model_service import PredictionService
 from backend.utils.response import success_response, error_response
 
-emergency_bp = Blueprint('emergency', __name__)
+emerg_bp = Blueprint('emerg', __name__)
 
 
 # 加载模型数据
-@emergency_bp.route('/simulate/test', methods=['POST'])
+@emerg_bp.route('/simulate/test', methods=['POST'])
 def simulate():
     # try:
     #     data = request.get_json()
@@ -73,22 +73,36 @@ def simulate():
         # 添加更多调试信息
         print("Service initialized successfully")
         predictions = service.predict_impact(position_id, event_type, severity, duration)
-        print(f"Predictions: {predictions}")
+        schedule = service.genetic_algorithm_schedule(predictions)  # 新增调度
+        print(f"Predictions: {predictions}\n")
+        print(f"schedule: {schedule}")
         if not predictions:
             return error_response(message='Prediction failed', code=400)
 
 
         # 格式化结果
-        result = [
-            {
-                "position_id": pred['position_id'],
-                "impact_probability": float(pred['impact_probability']),
-                "is_affected": bool(pred['is_affected']),
-                "predicted_impact_time_minutes": int(pred['predicted_impact_time_minutes'])
-            }
-            for pred in predictions
-        ]
-        return success_response(result)
+        # result = [
+        #     {
+        #         "position_id": pred['position_id'],
+        #         "impact_probability": float(pred['impact_probability']),
+        #         "is_affected": bool(pred['is_affected']),
+        #         "predicted_impact_time_minutes": int(pred['predicted_impact_time_minutes'])
+        #     }
+        #     for pred in predictions
+        # ]
+        # return success_response(result)
+        return success_response({
+            'predictions': [
+                {
+                    "position_id": pred['position_id'],
+                    "impact_probability": float(pred['impact_probability']),
+                    "is_affected": bool(pred['is_affected']),
+                    "predicted_impact_time_minutes": int(pred['predicted_impact_time_minutes'])
+                }
+                for pred in predictions
+            ],
+            'schedule': schedule  # 新增调度结果
+        })
     except Exception as e:
         return error_response(message=str(e), code=500)
 
@@ -96,7 +110,7 @@ def simulate():
 
 
 
-@emergency_bp.route('/positions', methods=['GET'])
+@emerg_bp.route('/positions', methods=['GET'])
 def get_positions():
     try:
         # 从Neo4j获取阵位数据

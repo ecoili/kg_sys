@@ -87,22 +87,50 @@
           </div>
         </template>
 
-        <el-table :data="predictions" border style="width: 100%">
-          <el-table-column prop="position_id" label="阵位ID" width="120"/>
-          <el-table-column prop="impact_probability" label="影响概率" width="120">
-            <template #default="{row}">
-              {{ (row.impact_probability * 100).toFixed(1) }}%
-            </template>
-          </el-table-column>
-          <el-table-column prop="is_affected" label="是否受影响" width="120">
-            <template #default="{row}">
-              <el-tag :type="row.is_affected ? 'danger' : 'success'">
-                {{ row.is_affected ? '是' : '否' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="predicted_impact_time_minutes" label="预计影响时间(分钟)"/>
-        </el-table>
+<!--        <el-table :data="predictions" border style="width: 100%">-->
+<!--          <el-table-column prop="position_id" label="阵位ID" width="120"/>-->
+<!--          <el-table-column prop="impact_probability" label="影响概率" width="120">-->
+<!--            <template #default="{row}">-->
+<!--              {{ (row.impact_probability * 100).toFixed(1) }}%-->
+<!--            </template>-->
+<!--          </el-table-column>-->
+<!--          <el-table-column prop="is_affected" label="是否受影响" width="120">-->
+<!--            <template #default="{row}">-->
+<!--              <el-tag :type="row.is_affected ? 'danger' : 'success'">-->
+<!--                {{ row.is_affected ? '是' : '否' }}-->
+<!--              </el-tag>-->
+<!--            </template>-->
+<!--          </el-table-column>-->
+<!--          <el-table-column prop="predicted_impact_time_minutes" label="预计影响时间(分钟)"/>-->
+<!--        </el-table>-->
+        <!-- 预测结果表格 -->
+            <el-table :data="predictions" border style="width: 100%">
+  <el-table-column prop="position_id" label="阵位ID" width="200">
+    <template #default="{row}">
+      <div>{{ row.position_id }}</div>
+    </template>
+  </el-table-column>
+
+  <el-table-column prop="position_name" label="阵位名称" width="200">
+    <template #default="{row}">
+      <div>{{ row.position_name || '未知' }}</div>
+    </template>
+  </el-table-column>
+
+  <el-table-column prop="impact_probability" label="影响概率" width="200">
+    <template #default="{row}">
+      {{ (row.impact_probability * 100).toFixed(1) }}%
+    </template>
+  </el-table-column>
+  <el-table-column prop="is_affected" label="是否受影响" width="200">
+    <template #default="{row}">
+      <el-tag :type="row.is_affected ? 'danger' : 'success'">
+        {{ row.is_affected ? '是' : '否' }}
+      </el-tag>
+    </template>
+  </el-table-column>
+  <el-table-column prop="predicted_impact_time_minutes" label="预计影响时间(分钟)"/>
+</el-table>
       </el-card>
 
       <el-card class="schedule-card" v-if="schedule.length > 0">
@@ -112,20 +140,47 @@
           </div>
         </template>
 
-        <el-table :data="schedule" border style="width: 100%">
-          <el-table-column prop="task_id" label="任务ID" width="120"/>
-          <el-table-column prop="position_id" label="分配阵位ID" width="120"/>
-          <el-table-column prop="position_name" label="阵位名称"/>
-        </el-table>
+<!--        <el-table :data="schedule" border style="width: 100%">-->
+<!--          <el-table-column prop="task_id" label="任务ID" width="120"/>-->
+<!--          <el-table-column prop="original_position_name" label="原阵位"/>-->
+<!--          <el-table-column prop="position_name" label="新阵位"/>-->
+<!--          <el-table-column prop="reason" label="调度原因"/>-->
+<!--          <el-table-column prop="distance" label="距离(米)" width="120"/>-->
+<!--          <el-table-column prop="move_time" label="预计移动时间(分钟)" width="150"/>-->
+<!--        </el-table>-->
+        <!-- 调度方案表格 -->
+            <el-table :data="schedule" border style="width: 100%">
+                <el-table-column prop="task_id" label="任务" width="180">
+                  <template #default="{row}">
+                    <div>ID: {{ row.task_id }}</div>
+                    <div>名称: {{ row.task_name }}</div>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="original_position" label="原阵位" width="180">
+                  <template #default="{row}">
+                    <div>ID: {{ row.original_position }}</div>
+                    <div>名称: {{ row.original_position_name }}</div>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="new_position" label="新阵位" width="180">
+                  <template #default="{row}">
+                    <div>ID: {{ row.new_position }}</div>
+                    <div>名称: {{ row.new_position_name }}</div>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="reason" label="调度原因"/>
+                <el-table-column prop="distance" label="移动距离(米)" width="120"/>
+                <el-table-column prop="move_time" label="预计处理时间(分钟)" width="150"/>
+              </el-table>
       </el-card>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
-import { simulateEmergency, simulateEmergency2 } from '@/api/emerg_fe.js'
+import {simulateEmergency, simulateEmergency2, simulateEmergency3} from '@/api/emerg_fe.js'
 import { parse } from 'papaparse'
 
 export default {
@@ -231,67 +286,136 @@ export default {
       showPositionsDialog.value = false
     }
 
+//     const submitForm = async () => {
+//   try {
+//     await formRef.value.validate()
+//     submitting.value = true
+//
+//     const response = await simulateEmergency3({
+//       position_id: String(form.position_id),
+//       event_type: form.event_type,
+//       severity: form.severity,
+//       duration: form.duration
+//     })
+//
+//     // 正确的响应结构应该是 response 直接包含后端返回的数据
+//     console.log("完整API响应", response)
+//
+//     // 确保响应包含必要字段
+//     if (!response || !response.predictions) {
+//       throw new Error('返回数据格式不正确')
+//     }
+//
+//     // 处理预测结果
+//     predictions.value = Array.isArray(response.predictions)
+//       ? response.predictions.map(item => ({
+//           position_id: String(item.position_id),
+//           impact_probability: Number(item.impact_probability),
+//           is_affected: Boolean(item.is_affected),
+//           predicted_impact_time_minutes: Number(item.predicted_impact_time_minutes)
+//         }))
+//       : []
+//
+//     // 处理调度结果
+//     schedule.value = Array.isArray(response.schedule)
+//       ? response.schedule.map(item => ({
+//           task_id: String(item.task_id),
+//           original_position_name: item.original_position_name,
+//           position_name: item.position_name,
+//           reason: item.reason,
+//           distance: item.distance,
+//           move_time: item.move_time
+//         }))
+//       : []
+//
+//     showResults.value = true
+//     ElMessage.success('模拟成功')
+//
+//   } catch (error) {
+//     const detailedError = {
+//       message: error.message,
+//       response: error.response,
+//       stack: error.stack
+//     }
+//     console.error('完整错误详情:', detailedError)
+//     ElMessage.error(`模拟失败: ${error.message}`)
+//     } finally {
+//     submitting.value = false
+//   }
+// }
+    const isMounted = ref(true)
+
+    onBeforeUnmount(() => {
+      isMounted.value = false
+    })
     const submitForm = async () => {
-      try {
-        await formRef.value.validate()
-        submitting.value = true
+  try {
+    if (!isMounted.value) return
+    await formRef.value.validate()
+    submitting.value = true
 
-        // const res = await simulateEmergency({
-        //   position_id: form.position_id,
-        //   event_type: form.event_type,
-        //   severity: form.severity,
-        //   duration: form.duration
-        // })
+    const response = await simulateEmergency3({
+      position_id: String(form.position_id),
+      event_type: form.event_type,
+      severity: form.severity,
+      duration: form.duration
+    })
 
-        const res = await simulateEmergency2({
-          position_id: String(form.position_id),  //显示转换为字符串
-          event_type: form.event_type,
-          severity: form.severity,
-          duration: form.duration
-        })
-        // 临时使用模拟数据
-        // const res = {
-        //     data: {
-        //       predictions: [
-        //         { position_id: 'P001', impact_probability: 0.8, is_affected: true, predicted_impact_time_minutes: 30 }
-        //       ],
-        //       schedule: [
-        //         { task_id: 'T001', position_id: 'P002', position_name: '备用阵位1' }
-        //       ]
-        //     }
-        // }
-        /* res直接就是对象数组，不需要用.data获取！！！目前只有preditions,所以只有一个数组
-        将来还有schedule数组，就要用下标0/1选取相应的数据了
-        * */
-        console.log('完整API响应:', res) // 添加这行查看完整响应
-        // console.log("响应数据类型:", res.data.type)
-        console.log('响应数据:', res.data) // 查看data结构:undefined
-        // console.log('第一个预测项:', res.data[0])
-        // 确保返回的是数组
-        if (!Array.isArray(res)) {
-          throw new Error('返回数据格式不正确，预期是数组')
-        }
+    // 检查组件是否仍然挂载
+    if (!formRef.value) return
 
-        // 转换数据确保类型正确
-        predictions.value = res.map(item => ({
-          position_id: String(item.position_id), // 确保是字符串
+    console.log("完整API响应", response)
+
+    if (!response || !response.predictions) {
+      throw new Error('返回数据格式不正确')
+    }
+
+    // 处理预测结果
+    predictions.value = Array.isArray(response.predictions)
+      ? response.predictions.map(item => ({
+          position_id: String(item.position_id),
+          position_name: item.position_name || '未知',
           impact_probability: Number(item.impact_probability),
           is_affected: Boolean(item.is_affected),
           predicted_impact_time_minutes: Number(item.predicted_impact_time_minutes)
         }))
+      : []
 
-        // predictions.value = res.data || []  // 后端返回的data就是预测结果数组
-        schedule.value = []  // 如果没有调度结果，初始化为空数组
-        showResults.value = true
+    // 处理调度结果
+    schedule.value = Array.isArray(response.schedule)
+      ? response.schedule.map(item => ({
+          task_id: String(item.task_id),
+          task_type: item.task_type || '未知',
+          task_name: item.task_name || '未知',
+          original_position: String(item.original_position),
+          original_position_name: item.original_position_name || '未知',
+          new_position: String(item.new_position),
+          new_position_name: item.new_position_name || '未知',
+          reason: item.reason,
+          // distance: item.distance,
+          // move_time: item.move_time
+          distance: Math.round(Number(item.distance)), // 四舍五入为整数
+          move_time: Math.round(Number(item.move_time)) // 四舍五入为整数
+        }))
+      : []
 
-        ElMessage.success('模拟成功')
-      } catch (error) {
-        console.error('模拟失败详情:', error.response?.data || error)
-        ElMessage.error(error.response?.data?.message || error.message || '模拟失败')
-      } finally {
-        submitting.value = false
-      }
+    showResults.value = true
+    ElMessage.success('模拟成功')
+
+  } catch (error) {
+    if (!isMounted.value) return
+    const detailedError = {
+      message: error.message,
+      response: error.response,
+      stack: error.stack
     }
+    console.error('完整错误详情:', detailedError)
+    ElMessage.error(`模拟失败: ${error.message}`)
+  } finally {
+    if (!isMounted.value) return
+    submitting.value = false
+  }
+}
 
     const resetForm = () => {
       formRef.value.resetFields()

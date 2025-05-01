@@ -5,7 +5,8 @@ from sqlalchemy import text
 # from backend.models.sql_user import User
 from backend.routes.auth import auth_bp
 from backend.routes.dashboard import board_bp
-from backend.routes.emerg_be import emergency_bp
+from backend.routes.emerg_be import emerg_bp
+from backend.routes.emergency_be import emergency_bp
 from . import commands
 app = Flask(__name__)
 
@@ -26,6 +27,7 @@ login_manager.login_message_category = 'info'
 # 所有auth_bp的路由自动添加前缀/auth
 app.register_blueprint(auth_bp, url_prefix='/auth')
 app.register_blueprint(board_bp)
+app.register_blueprint(emerg_bp)
 app.register_blueprint(emergency_bp)
 
 # 命令行操作
