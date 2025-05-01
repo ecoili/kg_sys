@@ -180,7 +180,7 @@
 <script>
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
-import {simulateEmergency, simulateEmergency2, simulateEmergency3} from '@/api/emerg_fe.js'
+import {simulateEmergency, simulateEmergency2, simulateEmergency3} from '@/api/emergency_fe.js'
 import { parse } from 'papaparse'
 
 export default {
