@@ -29,9 +29,12 @@ api.interceptors.response.use(
   const businessData = data.data ?? data
 
   // 可选：检查错误码（如 code != 200 时抛出异常）
-  if (data.code && data.code !== 200) {
-    return Promise.reject(data)
-  }
+  // if (data.code && data.code !== 200) {
+  //   return Promise.reject(data)
+  // }
+    if (data.code && ![200, 201].includes(data.code)) {
+        return Promise.reject(data)
+}
   return businessData
   },
   error => {

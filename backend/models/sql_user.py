@@ -10,7 +10,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(255), nullable=False)
     password = db.Column(db.String(255), nullable=False)
     phone = db.Column(db.String(11), unique=True, nullable=False)
-    avatar = db.Column(db.String(500))  # 存储头像URL
+    # avatar = db.Column(db.String(500))  # 存储头像URL
     # is_admin = db.Column(db.Boolean, default=False)  # 添加管理员标志
     # 在实际数据库中没有boolean类型，所以用tinyint(1)表示，： True---1，false---0
 

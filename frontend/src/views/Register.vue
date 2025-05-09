@@ -102,14 +102,29 @@ const refreshCaptcha = async () => {
 };
 
 const handleRegister = async () => {
+  // try {
+  //   await register(form.value)
+  //   ElMessage.success('注册成功')
+  //   await router.push('/auth/login')
+  // } catch (error) {
+  //   /*ElMessage.error(error.response?.data?.message || '注册失败');
+  //   await refreshCaptcha()*/
+  //   //统一修改
+  //   console.log(error.message)
+  //   ElMessage.error(error.message || '注册失败')
+  //   refreshCaptcha()
+  // }
   try {
-    await register(form.value)
-    ElMessage.success('注册成功')
-    await router.push('/auth/login')
+    const res = await register(form.value)
+    if (res && res.code === 201) {  // 明确检查成功状态
+      ElMessage.success(res.message || '注册成功')
+      await router.push('/auth/login')
+    } else {
+      ElMessage.error(res.message || '注册失败')
+      refreshCaptcha()
+    }
   } catch (error) {
-    /*ElMessage.error(error.response?.data?.message || '注册失败');
-    await refreshCaptcha()*/
-    //统一修改
+    console.error('Registration error:', error)
     ElMessage.error(error.message || '注册失败')
     refreshCaptcha()
   }
