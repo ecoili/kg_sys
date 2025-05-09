@@ -57,12 +57,12 @@ const routes = [
           meta: { title: '阵位间关系' },
           component: () => import('@/views/sys_data/PosRelation.vue')
           },
-          {
-          path: 'postaskrel',
-          name: 'PosTaskRel',
-          meta: { title: '阵位和任务关系' },
-          component: () => import('@/views/sys_data/PosTaskRel.vue')
-          }
+          // {
+          // path: 'postaskrel',
+          // name: 'PosTaskRel',
+          // meta: { title: '阵位和任务关系' },
+          // component: () => import('@/views/sys_data/PosTaskRel.vue')
+          // }
         ]
       },
       {
@@ -87,6 +87,11 @@ const routes = [
       },
     ]
 },
+    {
+    path: '/userInfo',
+    name: 'UserCenter',
+    component: () => import('@/views/UserInfo1.vue')
+  },
   {
     path: '/404',
     name: 'NotFound',

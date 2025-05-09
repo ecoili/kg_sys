@@ -181,6 +181,16 @@ def login():
         return error_response(str(e), 500)
 
 
+# @auth_bp.route('/admin/check', methods=['GET'])
+# @jwt_required()
+# def check_admin():
+#     current_user_id = get_jwt_identity()
+#     user = User.query.get(current_user_id)
+#     return success_response({
+#         'is_admin': user.is_admin if user else False
+#     })
+
+
 @auth_bp.route('/protected', methods=['GET'])
 @jwt_required()
 def protected():

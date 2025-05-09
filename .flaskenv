@@ -1,1 +1,1 @@
-FLASK_APP=backend.app
+FLASK_APP=app

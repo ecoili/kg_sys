@@ -92,9 +92,11 @@ const refreshCaptcha = async () => {
       form.value.captcha_id = response.captcha_id;
     } else {
       console.error('验证码数据格式不正确:', response)
+      ElMessage.error("验证码数据格式不正确")
     }
   } catch (error) {
     console.error('获取验证码失败:', error)
+    ElMessage.error("获取验证码失败")
     // 可以在这里显示错误提示给用户
   }
 }
@@ -161,8 +163,8 @@ const handleLogin = async () => {
 
 // 初始化时加载验证码
 onMounted(() => {
-  refreshCaptcha();
-});
+  refreshCaptcha()
+})
 </script>
 
 <style scoped>

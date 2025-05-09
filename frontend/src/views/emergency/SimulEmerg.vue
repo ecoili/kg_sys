@@ -67,9 +67,14 @@
     <!-- 阵位列表弹窗 -->
     <el-dialog title="所有阵位" v-model="showPositionsDialog" width="70%">
       <el-table :data="positions" border>
-        <el-table-column prop="position_id" label="ID" width="100" />
-        <el-table-column prop="type_identifier" label="类型名称" />
-        <el-table-column prop="position_type" label="类型代码" width="100" />
+        <el-table-column prop="position_id" label="阵位ID" width="100" />
+        <el-table-column prop="position_name" label="阵位名称" />
+        <el-table-column label="坐标" width="150">
+        <template #default="{row}">
+          ({{row.x}}, {{row.y}})
+        </template>
+      </el-table-column>
+        <el-table-column prop="position_type" label="类型" width="100" />
         <el-table-column label="操作" width="120">
           <template #default="{row}">
             <el-button size="small" @click="selectPosition(row)">选择</el-button>
@@ -184,6 +189,7 @@
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import {simulateEmergency, simulateEmergency2, simulateEmergency3} from '@/api/emergency_fe.js'
+import {fetchPositions} from '@/api/dashboard_fe.js'
 import { parse } from 'papaparse'
 
 export default {
@@ -238,23 +244,16 @@ export default {
 
     const loadPositionsData = async () => {
       try {
-        const response = await fetch(new URL('@/assets/positions.csv', import.meta.url).href)
-        const csvData = await response.text()
-
-        parse(csvData, {
-          header: true,
-          complete: (results) => {
-            positions.value = results.data.map(item => ({
-              position_id: item.position_id,
-              position_type: item.position_type,
-              type_identifier: item.type_identifier
-            }))
-          },
-          error: (error) => {
-            console.error('CSV解析错误:', error)
-            ElMessage.error('阵位数据解析失败')
-          }
-        })
+        const response = await fetchPositions()
+        console.log("完整的response：",response)
+        positions.value = response.map(item => ({
+          position_id: item.id,  // 注意字段名变化
+          position_name: item.name,
+          position_type: item.type,
+          x: item.x,
+          y: item.y
+          // type_identifier: item.type
+        }))
       } catch (error) {
         console.error('加载阵位数据失败:', error)
         ElMessage.error('加载阵位数据失败')

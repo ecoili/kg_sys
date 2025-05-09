@@ -8,6 +8,7 @@ from backend.routes.dashboard import board_bp
 from backend.routes.dashboard_be import dashboard_bp
 from backend.routes.emerg_be import emerg_bp
 from backend.routes.emergency_be import emergency_bp
+from backend.routes.userinfo_be import userinfo_bp
 from . import commands
 app = Flask(__name__)
 
@@ -31,6 +32,8 @@ app.register_blueprint(board_bp)
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(emerg_bp)
 app.register_blueprint(emergency_bp)
+app.register_blueprint(userinfo_bp)
+
 
 # 命令行操作
 def register_commands(app):

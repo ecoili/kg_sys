@@ -97,7 +97,8 @@ class Airport2:
                             type_identity=row['type_identifier'],
                             impt_lv=row['importance_level'],
                             flr_rate=row['failure_rate'],
-                            sup_num=row['supported_aircraft_count']
+                            sup_num=row['supported_aircraft_count'],
+                            allocated_tasknum=0  # 初始化为0
                             )
             neo4j.graph.create(position)
             positions.append(position)
@@ -211,20 +212,28 @@ class Airport2:
                 selected = random.choice(suitable_positions)
                 position_node = selected[0]
 
-                # 获取当前阵位上的任务数
-                current_count = neo4j.graph.run("""
-                                    MATCH (p:Position)<-[:ASSIGNED_TO]-(t:Task)
-                                    WHERE p.id = $pos_id
-                                    RETURN count(t) as count
-                                    """, pos_id=position_node["id"]).evaluate()
+                # # 获取当前阵位上的任务数
+                # current_count = neo4j.graph.run("""
+                #                     MATCH (p:Position)<-[:ASSIGNED_TO]-(t:Task)
+                #                     WHERE p.id = $pos_id
+                #                     RETURN count(t) as count
+                #                     """, pos_id=position_node["id"]).evaluate()
+                #
+                # if current_count >= position_node["sup_num"]:
+                #     continue  # 跳过已满的阵位
 
-                if current_count >= position_node["sup_num"]:
+                # 检查阵位是否已满
+                if position_node["allocated_tasknum"] >= position_node["sup_num"]:
                     continue  # 跳过已满的阵位
 
                 # 添加关系
                 rel = Relationship(task, "ASSIGNED_TO", position_node,
                                    assigned_time=datetime.now().isoformat())
                 neo4j.graph.create(rel)
+
+                # 更新阵位的已分配任务数
+                position_node["allocated_tasknum"] += 1
+                neo4j.graph.push(position_node)
 
                 # 同时添加current_position属性（存储position_id）
                 task["current_position"] = position_node["id"]

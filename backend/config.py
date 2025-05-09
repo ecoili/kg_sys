@@ -25,6 +25,7 @@ NEO4J_AUTH = ("neo4j", "neo4jpwd")
 
 # 获取项目根目录
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+print(BASE_DIR)
 # print("根目录为:", BASE_DIR)
 # 模型相关配置
 MODEL_DIR = os.path.join(BASE_DIR, 'backend', 'models')
@@ -33,3 +34,8 @@ POSITIONS_FILE = os.path.join(MODEL_DIR, 'data', 'positions.csv')
 RELATIONS_FILE = os.path.join(MODEL_DIR, 'data', 'relations.csv')
 EVENTS_FILE = os.path.join(MODEL_DIR, 'data', 'synthetic_events.csv')
 IMPACT_FILE = os.path.join(MODEL_DIR, 'data', 'synthetic_impact.csv')
+
+# 添加文件上传配置
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'backend', 'static', 'uploads')
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+MAX_CONTENT_LENGTH = 2 * 1024 * 1024  # 2MB限制

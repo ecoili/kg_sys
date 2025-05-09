@@ -19,13 +19,14 @@
     <div class="right-menu">
       <el-dropdown trigger="click">
         <div class="avatar-wrapper">
-<!--          <img :src="avatar" class="user-avatar">-->
-          <img :src="userAvatar" class="user-avatar">
+          <img :src="avatar" class="user-avatar">
+
           <span class="username">{{ username }}</span>
           <i class="el-icon-caret-bottom" />
         </div>
         <template #dropdown>
           <el-dropdown-menu>
+<!--            <el-dropdown-item>个人中心</el-dropdown-item>-->
             <el-dropdown-item @click="personalCenter">个人中心</el-dropdown-item>
             <el-dropdown-item divided @click="logout">退出登录</el-dropdown-item>
           </el-dropdown-menu>
@@ -40,21 +41,14 @@ import {computed, onMounted, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import avatar from '@/assets/default.png'
 import {ElMessage} from "element-plus";
-import {getAvatar} from "@/api/userinfo_fe.js";
 
 const router = useRouter()
 const route = useRoute()
 const username = ref('')
 const isCollapse = ref(false)
-const userAvatar = ref('')
-
 
 onMounted(() => {
   username.value = localStorage.getItem('username') || '未登录用户'
-  // 获取用户头像
-  getAvatar().then(res => {
-    userAvatar.value = res.avatar
-  })
 })
 
 const breadcrumbs = computed(() => {

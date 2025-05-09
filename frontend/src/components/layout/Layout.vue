@@ -12,7 +12,8 @@
 <script setup>
 import { ref, provide } from 'vue'
 import Sidebar from './Sidebar.vue'
-import Header from './Header.vue'
+// import Header from './Header.vue'
+import Header from './Header1.vue'
 import AppMain from './AppMain.vue'
 // import TagsView from './TagsView.vue'
 
