@@ -75,6 +75,7 @@
         :loading="submittingMultitask">
         提交多任务模拟
       </el-button>
+      <el-button @click="resetForm">重置</el-button>
     </el-card>
 
     <!-- 阵位列表弹窗 -->
@@ -92,49 +93,114 @@
     </el-dialog>
 
     <!-- 预测结果展示 -->
-    <div v-if="showResults" class="result-section">
+    <div v-if="showResults && isMultitaskResult" class="result-section">
+      <!-- 预测结果卡片 -->
       <el-card class="result-card">
         <template #header>
           <div class="card-header">
-            <span>预测结果</span>
+            <span>多任务预测结果</span>
           </div>
         </template>
 
         <el-table :data="predictions" border style="width: 100%">
-          <el-table-column prop="source_position_id" label="源阵位ID" width="120" v-if="isMultitaskResult"/>
-          <el-table-column prop="event_type" label="事件类型" width="150" v-if="isMultitaskResult"/>
-          <el-table-column prop="position_id" label="受影响阵位ID" width="120"/>
-          <el-table-column prop="impact_probability" label="影响概率" width="120">
+<!--          <el-table-column prop="source_position_id" label="源阵位ID" width="180">-->
+<!--            <template #default="{row}">-->
+<!--              <div>{{ row.source_position_id }}</div>-->
+<!--              <div style="color: #666">{{ getPositionName(row.source_position_id) }}</div>-->
+<!--            </template>-->
+<!--          </el-table-column>-->
+
+<!--          <el-table-column prop="event_type" label="特情类型" width="180">-->
+<!--            <template #default="{row}">-->
+<!--              {{ getEventTypeLabel(row.event_type) }}-->
+<!--            </template>-->
+<!--          </el-table-column>-->
+
+          <el-table-column prop="position_id" label="阵位ID" width="190">
+            <template #default="{row}">
+              <div>{{ row.position_id }}</div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="position_name" label="阵位名称" width="190">
+            <template #default="{row}">
+              <div>{{ row.position_name || '未知' }}</div>
+            </template>
+          </el-table-column>
+
+          <el-table-column prop="impact_probability" label="影响概率" width="190">
             <template #default="{row}">
               {{ (row.impact_probability * 100).toFixed(1) }}%
             </template>
           </el-table-column>
-          <el-table-column prop="is_affected" label="是否受影响" width="120">
+
+          <el-table-column prop="is_affected" label="是否受影响" width="190">
             <template #default="{row}">
               <el-tag :type="row.is_affected ? 'danger' : 'success'">
                 {{ row.is_affected ? '是' : '否' }}
               </el-tag>
             </template>
           </el-table-column>
+
           <el-table-column prop="predicted_impact_time_minutes" label="预计影响时间(分钟)"/>
         </el-table>
       </el-card>
 
+      <!-- 调度方案卡片 -->
       <el-card class="schedule-card" v-if="schedule.length > 0">
         <template #header>
           <div class="card-header">
-            <span>调度方案</span>
+            <span>多任务调度方案</span>
           </div>
         </template>
 
         <el-table :data="schedule" border style="width: 100%">
-          <el-table-column prop="task_id" label="任务ID" width="120"/>
-          <el-table-column prop="position_id" label="分配阵位ID" width="120"/>
-          <el-table-column prop="position_name" label="阵位名称"/>
+<!--          <el-table-column prop="source_position_id" label="源阵位" width="180">-->
+<!--            <template #default="{row}">-->
+<!--              <div>ID: {{ row.source_position_id }}</div>-->
+<!--              <div>名称: {{ getPositionName(row.source_position_id) }}</div>-->
+<!--            </template>-->
+<!--          </el-table-column>-->
+
+<!--          <el-table-column prop="event_type" label="特情类型" width="180">-->
+<!--            <template #default="{row}">-->
+<!--              {{ getEventTypeLabel(row.event_type) }}-->
+<!--            </template>-->
+<!--          </el-table-column>-->
+
+          <el-table-column prop="task_id" label="任务" width="180">
+            <template #default="{row}">
+              <div>ID: {{ row.task_id }}</div>
+              <div>名称: {{ row.task_name || '未知' }}</div>
+<!--              <div>类型: {{ row.task_type || '未知' }}</div>-->
+            </template>
+          </el-table-column>
+
+        <el-table-column prop="priority" label="任务优先级"/>
+
+          <el-table-column prop="original_position" label="原阵位" width="180">
+            <template #default="{row}">
+              <div>ID: {{ row.original_position }}</div>
+              <div>名称: {{ row.original_position_name || '未知' }}</div>
+            </template>
+          </el-table-column>
+
+          <el-table-column prop="new_position" label="新阵位" width="180">
+            <template #default="{row}">
+              <div>ID: {{ row.new_position }}</div>
+              <div>名称: {{ row.new_position_name || '未知' }}</div>
+            </template>
+          </el-table-column>
+
+          <el-table-column prop="reason" label="调度原因"/>
+
+          <el-table-column prop="distance" label="移动距离(米)" width="120"/>
+
+          <el-table-column prop="move_time" label="预计处理时间(分钟)" width="150"/>
         </el-table>
-      </el-card>
-    </div>
+        </el-card>
+      </div>
   </div>
+
 </template>
 
 <script>
@@ -148,7 +214,7 @@ export default {
   setup() {
     // 共用状态
     const formRef = ref(null)
-    const submitting = ref(false)
+    // const submitting = ref(false)
     const submittingMultitask = ref(false)
     const showResults = ref(false)
     const showPositionsDialog = ref(false)
@@ -169,12 +235,12 @@ export default {
     ]
 
     // 单任务表单
-    const form = reactive({
-      event_type: '',
-      position_id: '',
-      severity: 0.5,
-      duration: 30
-    })
+    // const form = reactive({
+    //   event_type: '',
+    //   position_id: '',
+    //   severity: 0.5,
+    //   duration: 30
+    // })
 
     // 多任务表单
     const multitaskForm = reactive({
@@ -210,6 +276,10 @@ export default {
       severity: [{ required: true, message: '请设置严重程度', trigger: 'blur' }],
       duration: [{ required: true, message: '请设置持续时间', trigger: 'blur' }]
     }
+    const getEventTypeLabel = (eventTypeValue) => {
+  const type = eventTypes.find(item => item.value === eventTypeValue);
+  return type ? type.label : '未知';
+}
 
     // 加载阵位数据
     const loadPositionsData = async () => {
@@ -263,16 +333,11 @@ export default {
     }
 
     const selectPosition = (pos) => {
-      if (isMultitaskResult.value) {
-        // 如果是多任务结果，更新当前活动的输入框
-        const activeIndex = multitaskForm.position_ids.length - 1
-        multitaskForm.position_ids[activeIndex] = pos.position_id
-      } else {
-        form.position_id = pos.position_id
-      }
-      currentPosition.value = pos
-      showPositionsDialog.value = false
-    }
+  // 获取当前活动的输入框索引（最后一个）
+  const activeIndex = multitaskForm.position_ids.length - 1
+  multitaskForm.position_ids[activeIndex] = pos.position_id
+  showPositionsDialog.value = false
+}
 
     // 任务管理
     const addTask = () => {
@@ -292,40 +357,36 @@ export default {
     }
 
     // 表单提交
-    const submitForm = async () => {
-      try {
-        await formRef.value.validate()
-        submitting.value = true
-        isMultitaskResult.value = false
-
-        const res = await simulateEmergency({
-          position_id: String(form.position_id),
-          event_type: form.event_type,
-          severity: form.severity,
-          duration: form.duration
-        })
-
-        if (!Array.isArray(res)) {
-          throw new Error('返回数据格式不正确，预期是数组')
-        }
-
-        predictions.value = res.map(item => ({
-          position_id: String(item.position_id),
-          impact_probability: Number(item.impact_probability),
-          is_affected: Boolean(item.is_affected),
-          predicted_impact_time_minutes: Number(item.predicted_impact_time_minutes)
-        }))
-
-        schedule.value = []
-        showResults.value = true
-        ElMessage.success('模拟成功')
-      } catch (error) {
-        console.error('模拟失败详情:', error)
-        ElMessage.error(error.response?.data?.message || error.message || '模拟失败')
-      } finally {
-        submitting.value = false
-      }
-    }
+    // const submitForm = async () => {
+    //   try {
+    //     await formRef.value.validate()
+    //     submitting.value = true
+    //     isMultitaskResult.value = false
+    //
+    //     const res = await simulateEmergency({
+    //       position_id: String(form.position_id),
+    //       event_type: form.event_type,
+    //       severity: form.severity,
+    //       duration: form.duration
+    //     })
+    //
+    //     predictions.value = res.map(item => ({
+    //       position_id: String(item.position_id),
+    //       impact_probability: Number(item.impact_probability),
+    //       is_affected: Boolean(item.is_affected),
+    //       predicted_impact_time_minutes: Number(item.predicted_impact_time_minutes)
+    //     }))
+    //
+    //     schedule.value = []
+    //     showResults.value = true
+    //     ElMessage.success('模拟成功')
+    //   } catch (error) {
+    //     console.error('模拟失败详情:', error)
+    //     ElMessage.error(error.response?.data?.message || error.message || '模拟失败')
+    //   } finally {
+    //     submitting.value = false
+    //   }
+    // }
 
     const submitMultitaskForm = async () => {
       try {
@@ -350,44 +411,59 @@ export default {
         submittingMultitask.value = true
         isMultitaskResult.value = true
 
-        const res = await simulateMultitaskEmergency({
+        const response = await simulateMultitaskEmergency({
           position_ids: multitaskForm.position_ids.map(String),
           event_types: multitaskForm.event_types,
           severities: multitaskForm.severities,
           durations: multitaskForm.durations
         })
+        console.log("完整API响应", response)
 
-        // 处理多任务返回结果
-        predictions.value = res.flatMap(prediction =>
-          prediction.affected_positions.map(affected => ({
-            source_position_id: prediction.source_position_id,
-            event_type: prediction.event_type,
-            position_id: affected.position_id,
-            impact_probability: affected.impact_probability,
-            is_affected: affected.is_affected,
-            predicted_impact_time_minutes: affected.predicted_impact_time_minutes
-          }))
-        )
+        predictions.value = response.predictions.map(pred => ({
+        position_id: String(pred.position_id),
+        position_name: pred.position_name,
+        impact_probability: Number(pred.impact_probability),
+        is_affected: Boolean(pred.is_affected),
+        predicted_impact_time_minutes: Number(pred.predicted_impact_time_minutes)
+      }))
 
-        schedule.value = []
+      schedule.value = response.schedule.map(task => ({
+        task_id: String(task.task_id),
+        task_type: task.task_type,
+        task_name: task.task_name,
+        priority: task.priority,
+        original_position: String(task.original_position),
+        original_position_name: task.original_position_name,
+        new_position: String(task.new_position),
+        new_position_name: task.new_position_name,
+        reason: task.reason,
+        distance: Math.round(Number(task.distance)),
+        move_time: Math.round(Number(task.move_time))
+      }))
+
         showResults.value = true
-        ElMessage.success('多任务模拟成功')
-      } catch (error) {
-        console.error('多任务模拟失败:', error)
-        ElMessage.error(error.response?.data?.message || error.message || '多任务模拟失败')
-      } finally {
-        submittingMultitask.value = false
-      }
-    }
+    ElMessage.success('多任务模拟成功')
+  } catch (error) {
+    console.error('多任务模拟失败:', error)
+    ElMessage.error(error.response?.data?.message || error.message || '多任务模拟失败')
+  } finally {
+    submittingMultitask.value = false
+  }
+}
 
     // 重置表单
     const resetForm = () => {
-      formRef.value.resetFields()
+      // formRef.value.resetFields()
       showResults.value = false
       predictions.value = []
       schedule.value = []
       currentPosition.value = null
       isMultitaskResult.value = false
+      // 修改为重置为初始状态（保留一个空任务）
+      multitaskForm.position_ids = ['']
+      multitaskForm.event_types = ['']
+      multitaskForm.severities = [0.5]
+      multitaskForm.durations = [30]
     }
 
     onMounted(() => {
@@ -396,16 +472,16 @@ export default {
 
     return {
       formRef,
-      form,
+      // form,
       multitaskForm,
       rules,
       positionRules,
       eventTypeRules,
-      submitting,
+      // submitting,
       submittingMultitask,
       eventTypes,
       positions,
-      currentPosition,
+      // currentPosition,
       showPositionList,
       validatePositionId,
       validateMultitaskPositionId,
@@ -413,7 +489,7 @@ export default {
       selectPosition,
       addTask,
       removeTask,
-      submitForm,
+      // submitForm,
       submitMultitaskForm,
       resetForm,
       predictions,

@@ -54,50 +54,94 @@ def predict():
         return error_response(message=str(e), code=500)
 
 
+from flask import Blueprint, request
+import torch
+from backend.service.model_loader import model, node_id_map, event_type_map, graph_data, reverse_node_id_map
+from backend.service.station_impact_prediction_multitask import predict_single_position
+from ..service.model_service import PredictionService
+from ..utils.response import success_response, error_response
+from backend.extensions import neo4j
+
+dashboard_bp = Blueprint('dashboard_be', __name__)
+
 @dashboard_bp.route('/getpositions', methods=['GET'])
 def get_positions():
     try:
-        # 从Neo4j获取阵位数据
-        graph = neo4j.graph
-        positions = list(graph.nodes.match("Position"))
-        # 格式化返回数据
-        formatted_positions = []
-        for pos in positions:
-            formatted_positions.append({
-                "id": pos["id"],
-                "name": pos["name"],
-                "x": pos["x"],
-                "y": pos["y"],
-                "type": pos["type"],
-                "impt_lv": pos["impt_lv"],
-                "flr_rate": pos["flr_rate"],
-                "sup_num": pos["sup_num"]
-            })
-
-        return success_response(formatted_positions)
+        # 使用Cypher查询优化性能
+        query = """
+        MATCH (p:Position)
+        RETURN p.id as id, p.name as name, p.x as x, p.y as y,
+               p.type as type, p.impt_lv as impt_lv,
+               p.flr_rate as flr_rate, p.sup_num as sup_num
+        """
+        result = neo4j.graph.run(query).data()
+        return success_response(result)
     except Exception as e:
         return error_response(message=str(e), code=500)
-
 
 @dashboard_bp.route('/gettasks', methods=['GET'])
 def get_tasks():
     try:
-        # 从Neo4j获取任务数据
-        graph = neo4j.graph
-        tasks = list(graph.nodes.match("Task"))
-        # 格式化返回数据
-        formatted_tasks = []
-        for task in tasks:
-            formatted_tasks.append({
-                "id": task["id"],
-                "name": task["name"],
-                "type": task["type"],
-                "duration": task["duration"],
-                "current_pos_name": task["current_position_name"],
-                "current_pos": task["current_position"],
-                "priority": task["priority"]
-            })
-        return success_response(formatted_tasks)
+        # 使用Cypher查询优化性能
+        query = """
+        MATCH (t:Task)
+        RETURN t.id as id, t.name as name, t.type as type,
+               t.duration as duration, t.current_position_name as current_pos_name,
+               t.current_position as current_pos, t.priority as priority,
+               t.deadline as deadline, t.status as status
+        """
+        result = neo4j.graph.run(query).data()
+        return success_response(result)
     except Exception as e:
         return error_response(message=str(e), code=500)
 
+@dashboard_bp.route('/getpositionrelations', methods=['GET'])
+def get_position_relations():
+    try:
+        # 优化后的关系查询
+        query = """
+        MATCH (s:Position)-[r]->(t:Position)
+        WHERE type(r) IN ['CONNECTION', 'INFLUENCE']
+        RETURN s.id as source_id, s.name as source_name,
+               t.id as target_id, t.name as target_name,
+               type(r) as relation_type,
+               COALESCE(r.strength, 1.0) as strength,
+               COALESCE(r.distance, 0.0) as distance
+        """
+        result = neo4j.graph.run(query).data()
+        return success_response(result)
+    except Exception as e:
+        return error_response(message=str(e), code=500)
+
+@dashboard_bp.route('/getpositiontaskrelations', methods=['GET'])
+def get_position_task_relations():
+    try:
+        # 优化后的任务关系查询
+        query = """
+        MATCH (p:Position)<-[r:ASSIGNED_TO]-(t:Task)
+        RETURN p.id as position_id, p.name as position_name,
+               t.id as task_id, t.name as task_name,
+               type(r) as relation_type,
+               r.assigned_time as assigned_time
+        """
+        result = neo4j.graph.run(query).data()
+        return success_response(result)
+    except Exception as e:
+        return error_response(message=str(e), code=500)
+
+@dashboard_bp.route('/gettasksbypositionid/<int:position_id>', methods=['GET'])
+def get_tasks_by_position_id(position_id):
+    try:
+        # 使用Cypher查询优化性能
+        query = """
+        MATCH (p:Position)<-[r:ASSIGNED_TO]-(t:Task)
+        WHERE p.id = $position_id
+        RETURN t.id as id, t.name as name, t.type as type,
+               t.duration as duration, t.current_position_name as current_pos_name,
+               t.current_position as current_pos, t.priority as priority,
+               t.deadline as deadline, t.status as status
+        """
+        result = neo4j.graph.run(query, position_id=position_id).data()
+        return success_response(result)
+    except Exception as e:
+        return error_response(message=str(e), code=500)

@@ -1,6 +1,6 @@
 <template>
-  <div class="positions-container">
-    <h2>机场阵位信息</h2>
+  <div class="relations-container">
+    <h2>阵位与任务间关系</h2>
 
     <!-- 加载状态 -->
     <div v-if="loading" class="loading">加载中...</div>
@@ -9,30 +9,29 @@
     <div v-if="error" class="error">{{ error }}</div>
 
     <!-- 数据展示 -->
-    <div v-if="positions.length > 0">
-      <table class="positions-table">
+    <div v-if="relations.length > 0">
+      <table class="relations-table">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>名称</th>
-            <th>类型</th>
-            <th>坐标(X,Y)</th>
-            <th>重要性</th>
-            <th>支持飞机数</th>
+            <th>阵位ID</th>
+            <th>阵位名称</th>
+            <th>任务ID</th>
+            <th>任务名称</th>
+            <th>关系类型</th>
+            <th>开始时间</th>
+<!--            <th>结束时间</th>-->
           </tr>
         </thead>
         <tbody>
-          <tr v-for="position in paginatedData" :key="position.id">
-            <td>{{ position.id }}</td>
-            <td>{{ position.name }}</td>
-            <td>{{ position.type }}</td>
-            <td>({{ position.x }}, {{ position.y }})</td>
-            <td>
-            <span :class="`impt_lv-${position.impt_lv}`">
-              {{ position.impt_lv }}
-            </span>
-          </td>
-            <td>{{ position.sup_num }}</td>
+          <tr v-for="relation in paginatedData" :key="`${relation.position_id}-${relation.task_id}`">
+            <td>{{ relation.position_id }}</td>
+            <td>{{ relation.position_name }}</td>
+            <td>{{ relation.task_id }}</td>
+            <td>{{ relation.task_name }}</td>
+            <td>{{ relation.relation_type }}</td>
+<!--            <td>{{ relation.start_time || 'N/A' }}</td>-->
+<!--            <td>{{ relation.end_time || 'N/A' }}</td>-->
+            <td>{{ formatDate(relation.assigned_time) }}</td>
           </tr>
         </tbody>
       </table>
@@ -77,76 +76,71 @@
       </div>
     </div>
 
-    <div v-else class="no-data">暂无阵位数据</div>
+    <div v-else class="no-data">暂无阵位与任务关系数据</div>
   </div>
 </template>
 
 <script>
-import { fetchPositions } from '@/api/dashboard_fe.js' // 导入API方法
+import { fetchPosTaskRelations } from '@/api/dashboard_fe.js'
+import dayjs from 'dayjs'
 
 export default {
-  name: 'PositionsView',
+  name: 'PositionTaskRelations',
   data() {
     return {
-      positions: [],
+      relations: [],
       loading: false,
       error: null,
-      currentPage: 1,    // 当前页码
-      pageSize: 10,      // 每页显示条数
-      inputPage: 1       // 输入框中的页码
+      currentPage: 1,
+      pageSize: 10,
+      inputPage: 1
     }
   },
   watch: {
-    // 当currentPage变化时同步更新inputPage
     currentPage(newVal) {
       this.inputPage = newVal
     }
   },
   computed: {
-    // 计算总页数
     totalPages() {
-      return Math.ceil(this.positions.length / this.pageSize)
+      return Math.ceil(this.relations.length / this.pageSize)
     },
-    // 获取当前页的数据
     paginatedData() {
       const start = (this.currentPage - 1) * this.pageSize
       const end = start + Number(this.pageSize)
-      return this.positions.slice(start, end)
+      return this.relations.slice(start, end)
     }
   },
   async created() {
-    await this.loadPositions()
-    // 初始化inputPage
+    await this.loadRelations()
     this.inputPage = this.currentPage
   },
   methods: {
-    async loadPositions() {
+    async loadRelations() {
       this.loading = true
       this.error = null
 
       try {
-        const response = await fetchPositions()
-        this.positions = response.data || response // 根据你的API响应结构调整
+        const response = await fetchPosTaskRelations()
+        this.relations = response.data || response
+        console.log(response)
       } catch (err) {
-        console.error('获取阵位数据失败:', err)
-        this.error = '获取阵位数据失败，请稍后重试'
+        console.error('获取阵位与任务关系数据失败:', err)
+        this.error = '获取阵位与任务关系数据失败，请稍后重试'
       } finally {
         this.loading = false
       }
     },
-    // 上一页
     prevPage() {
       if (this.currentPage > 1) {
         this.currentPage--
       }
     },
-    // 下一页
     nextPage() {
       if (this.currentPage < this.totalPages) {
         this.currentPage++
       }
     },
-    // 跳转到指定页
     goToPage() {
       let page = parseInt(this.inputPage)
       if (isNaN(page) || page < 1) {
@@ -156,36 +150,44 @@ export default {
       }
       this.currentPage = page
     },
-    // 切换每页条数时重置到第一页
     resetPage() {
       this.currentPage = 1
+    },
+    formatDate(time) {
+      if (!time) return 'N/A';
+    try {
+      return dayjs(time).format('YYYY-MM-DD HH:mm:ss');
+    } catch (e) {
+      console.error('时间格式化错误:', e);
+      return '无效时间';
+    }
     }
   }
 }
 </script>
 
 <style scoped>
-.positions-container {
+.relations-container {
   padding: 20px;
 }
 
-.positions-table {
+.relations-table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 20px;
 }
 
-.positions-table th, .positions-table td {
+.relations-table th, .relations-table td {
   border: 1px solid #ddd;
   padding: 8px;
   text-align: left;
 }
 
-.positions-table th {
+.relations-table th {
   background-color: #f2f2f2;
 }
 
-.positions-table tr:nth-child(even) {
+.relations-table tr:nth-child(even) {
   background-color: #f9f9f9;
 }
 
@@ -245,21 +247,5 @@ export default {
   padding: 5px;
   border-radius: 4px;
   border: 1px solid #dcdfe6;
-}
-
-.impt_lv-1 {
-  color: #4CAF50;
-}
-.impt_lv-2 {
-  color: #FFC107;
-}
-.impt_lv-3 {
-  color: #FF9800;
-}
-.impt_lv-4 {
-  color: #F44336;
-}
-.impt_lv-5 {
-  color: #9C27B0;
 }
 </style>

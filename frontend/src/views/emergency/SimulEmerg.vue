@@ -122,7 +122,7 @@
       {{ (row.impact_probability * 100).toFixed(1) }}%
     </template>
   </el-table-column>
-  <el-table-column prop="is_affected" label="是否受影响" width="200">
+  <el-table-column prop="is_affected" label="是否受影响(概率>50%)" width="200">
     <template #default="{row}">
       <el-tag :type="row.is_affected ? 'danger' : 'success'">
         {{ row.is_affected ? '是' : '否' }}
@@ -156,6 +156,9 @@
                     <div>名称: {{ row.task_name }}</div>
                   </template>
                 </el-table-column>
+
+              <el-table-column prop="priority" label="任务优先级"/>
+
                 <el-table-column prop="original_position" label="原阵位" width="180">
                   <template #default="{row}">
                     <div>ID: {{ row.original_position }}</div>
@@ -392,6 +395,7 @@ export default {
           new_position: String(item.new_position),
           new_position_name: item.new_position_name || '未知',
           reason: item.reason,
+          priority: item.priority,
           // distance: item.distance,
           // move_time: item.move_time
           distance: Math.round(Number(item.distance)), // 四舍五入为整数

@@ -63,15 +63,15 @@ class ImpactPredictionService(BasePredictionService):
                 source_node_indices.append(self.node_id_map[pos_id])
                 event_type_indices.append(self.event_type_map[event_type])
 
-            # 转换为张量
-            source_node_indices = torch.tensor(source_node_indices, device=self.device)
-            event_type_indices = torch.tensor(event_type_indices, device=self.device)
-            severity_tensor = torch.tensor(severities, device=self.device).float().unsqueeze(1)
-            duration_tensor = torch.tensor(durations, device=self.device).float().unsqueeze(1)
+            # 转换为2D张量，形状为 [batch_size, 1]
+            source_node_indices = torch.tensor(source_node_indices, device=self.device).view(-1, 1)
+            event_type_indices = torch.tensor(event_type_indices, device=self.device).view(-1, 1)
+            severity_tensor = torch.tensor(severities, device=self.device).float().view(-1, 1)
+            duration_tensor = torch.tensor(durations, device=self.device).float().view(-1, 1)
 
             # 批量预测
             with torch.no_grad():
-                impact_probs, impact_times = self.model(
+                outputs = self.model(
                     self.graph_data.x.to(self.device),
                     self.graph_data.edge_index.to(self.device),
                     self.graph_data.edge_type.to(self.device),
@@ -81,9 +81,14 @@ class ImpactPredictionService(BasePredictionService):
                     duration_tensor
                 )
 
+            # 确保模型输出形状正确 [batch_size, num_nodes, 2]
+            if isinstance(outputs, tuple):
+                outputs = outputs[0]  # 如果模型返回的是元组，取第一个元素
+            outputs = outputs.unsqueeze(0) if outputs.dim() == 2 else outputs
+
             # 处理批量预测结果
             return self._process_batch_prediction_results(
-                impact_probs, impact_times, source_position_ids, event_types
+                outputs, source_position_ids, event_types
             )
 
         except Exception as e:
@@ -106,18 +111,22 @@ class ImpactPredictionService(BasePredictionService):
             })
         return predictions
 
-    def _process_batch_prediction_results(self, impact_probs, impact_times, source_ids, event_types):
+    def _process_batch_prediction_results(self, outputs, source_ids, event_types):
         """处理批量预测结果"""
+        # outputs形状应为 [batch_size, num_nodes, 2]
+        impact_probs = torch.sigmoid(outputs[:, :, 0])  # 第一列是影响概率logits
+        impact_times = outputs[:, :, 1]  # 第二列是影响时间
+
         all_predictions = []
         for batch_idx in range(len(source_ids)):
             predictions = []
-            for node_idx, (prob, time) in enumerate(zip(impact_probs[batch_idx], impact_times[batch_idx])):
+            for node_idx in range(impact_probs.size(1)):
                 position_id = str(self.reverse_node_id_map[node_idx])
                 predictions.append({
                     "position_id": position_id,
-                    "impact_probability": prob.item(),
-                    "is_affected": 1 if prob > 0.5 else 0,
-                    "predicted_impact_time_minutes": max(0, time.item()),
+                    "impact_probability": impact_probs[batch_idx, node_idx].item(),
+                    "is_affected": 1 if impact_probs[batch_idx, node_idx] > 0.5 else 0,
+                    "predicted_impact_time_minutes": max(0, impact_times[batch_idx, node_idx].item()),
                     "source_position_id": source_ids[batch_idx],
                     "event_type": event_types[batch_idx]
                 })

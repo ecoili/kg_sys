@@ -31,7 +31,7 @@ const routes = [
         path: 'kg',
         name: 'KnowledgeGraph',
         meta: { title: '知识图谱', icon: 'el-icon-s-promotion' },
-        component: () => import('@/views/KnlGraph.vue')
+        component: () => import('@/views/KnlGraph3.vue')
       },
       {
         path: 'data',
@@ -50,6 +50,18 @@ const routes = [
             name: 'TaskTable',
             meta: { title: '任务信息' },
             component: () => import('@/views/sys_data/TaskTable.vue')
+          },
+          {
+          path: 'pos2rel',
+          name: 'Pos2Rel',
+          meta: { title: '阵位间关系' },
+          component: () => import('@/views/sys_data/PosRelation.vue')
+          },
+          {
+          path: 'postaskrel',
+          name: 'PosTaskRel',
+          meta: { title: '阵位和任务关系' },
+          component: () => import('@/views/sys_data/PosTaskRel.vue')
           }
         ]
       },

@@ -17,9 +17,18 @@ export const simulateEmergency3 = async (data) => {
   // 不需要额外try-catch，因为错误已在拦截器统一处理
 }
 
+// export const simulateMultitaskEmergency = async (data) => {
+//   return await api.post('/simulateMultiEmerg', data)
+//   // 不需要额外try-catch，因为错误已在拦截器统一处理
+// }
+
 export const simulateMultitaskEmergency = async (data) => {
-  return await api.post('/simulateMulti/test', data)
-  // 不需要额外try-catch，因为错误已在拦截器统一处理
+  return await api.post('/simulateMultiEmerg', {
+    position_ids: Array.isArray(data.position_ids) ? data.position_ids : [data.position_ids],
+    event_types: Array.isArray(data.event_types) ? data.event_types : [data.event_types],
+    severities: Array.isArray(data.severities) ? data.severities : [data.severities],
+    durations: Array.isArray(data.durations) ? data.durations : [data.durations]
+  })
 }
 
 // 其他emergency相关API可以按照相同模式添加

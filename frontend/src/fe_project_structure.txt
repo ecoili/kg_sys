@@ -1,0 +1,59 @@
+E:\py_prjs\flask3\frontend\src
+©¦  App.vue
+©¦  main.js
+©¦  project_structure.txt
+©¦  
+©À©¤api
+©¦      auth.js
+©¦      dashboard_fe.js
+©¦      emergency_fe.js
+©¦      
+©À©¤assets
+©¦      airplane_photo1.jpg
+©¦      airport_photo1.jpg
+©¦      airport_photo2.jpg
+©¦      avatar.png
+©¦      default.png
+©¦      logo.png
+©¦      myLogo.png
+©¦      positions.csv
+©¦      relations.csv
+©¦      
+©À©¤components
+©¦  ©¸©¤layout
+©¦          AppMain.vue
+©¦          Header.vue
+©¦          Layout.vue
+©¦          Sidebar.vue
+©¦          SidebarItem.vue
+©¦          
+©À©¤router
+©¦      index.js
+©¦      
+©À©¤styles
+©¦      layout.scss
+©¦      
+©¸©¤views
+    ©¦  DashBoard.vue
+    ©¦  KnlGraph.vue
+    ©¦  KnlGraph1.vue
+    ©¦  KnlGraph2.vue
+    ©¦  KnlGraph3.vue
+    ©¦  Login.vue
+    ©¦  NotFound.vue
+    ©¦  Register.vue
+    ©¦  
+    ©À©¤emergency
+    ©¦      Process.vue
+    ©¦      Report.vue
+    ©¦      Simulation.vue
+    ©¦      SimulEmerg.vue
+    ©¦      SimulEmergMul.vue
+    ©¦      
+    ©¸©¤sys_data
+            PosRelation.vue
+            PosTable.vue
+            PosTable1.vue
+            PosTaskRel.vue
+            TaskTable.vue
+            

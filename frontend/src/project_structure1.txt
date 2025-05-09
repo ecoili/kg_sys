@@ -1,0 +1,13 @@
+E:\py_prjs\flask3\frontend\src
+├── api
+├── App.vue
+├── assets
+├── components
+├── main.js
+├── project_structure.txt
+├── router
+├── styles
+└── views
+
+directory: 6 file: 3
+

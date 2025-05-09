@@ -100,6 +100,7 @@ def simulate():
                     "task_id": str(task['task_id']),
                     "task_type": task['task_type'],
                     "task_name": task['task_name'],
+                    "priority": task['priority'],
                     "original_position": str(task['original_position']),
                     "original_position_name": task['original_position_name'],
                     "new_position": str(task['new_position']),
@@ -114,6 +115,71 @@ def simulate():
 
     except Exception as e:
         print(f"Error in simulation: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return error_response(message=str(e), code=500)
+
+
+@emergency_bp.route('/simulateMultiEmerg', methods=['POST'])
+def simulate_multitask():
+    try:
+        data = request.get_json()
+
+        # 验证参数
+        required_fields = ['position_ids', 'event_types', 'severities', 'durations']
+        if not all(field in data for field in required_fields):
+            return error_response('缺少必要参数', code=400)
+        if len(data['position_ids']) != len(data['event_types']) != len(data['severities']) != len(data['durations']):
+            return error_response('参数列表长度不一致', code=400)
+
+        coordinator = CoordinatorService()
+
+        # 使用新的复合处理方法
+        result = coordinator.predict_and_schedule_multitask(
+            data['position_ids'],
+            data['event_types'],
+            data['severities'],
+            data['durations']
+        )
+
+        # 获取阵位名称映射
+        positions = list(neo4j.graph.nodes.match("Position"))
+        position_name_map = {str(pos['id']): pos.get('name', '未知') for pos in positions}
+
+        # 格式化响应数据
+        formatted_result = {
+            'predictions': [
+                {
+                    "position_id": str(pred['position_id']),
+                    "position_name": position_name_map.get(str(pred['position_id']), '未知'),
+                    "impact_probability": float(pred['impact_probability']),
+                    "is_affected": bool(pred['is_affected']),
+                    "predicted_impact_time_minutes": int(pred['predicted_impact_time_minutes'])
+                }
+                for pred in result['predictions']
+            ],
+            'schedule': [
+                {
+                    "task_id": str(task['task_id']),
+                    "task_type": task['task_type'],
+                    "task_name": task['task_name'],
+                    "priority": task['priority'],
+                    "original_position": str(task['original_position']),
+                    "original_position_name": task['original_position_name'],
+                    "new_position": str(task['new_position']),
+                    "new_position_name": task['new_position_name'],
+                    "reason": task['reason'],
+                    "distance": task['distance'],
+                    "move_time": task['move_time']
+                }
+                for task in result['schedule']
+            ]
+        }
+
+        return success_response(formatted_result)
+
+    except Exception as e:
+        print(f"Error in multitask simulation: {str(e)}")
         import traceback
         traceback.print_exc()
         return error_response(message=str(e), code=500)

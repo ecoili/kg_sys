@@ -11,55 +11,113 @@ class GeneticSchedulerService:
         self.prediction_service = prediction_service
         self._setup_genetic_algorithm()
 
+    # def schedule_tasks(self, predictions):
+    #     """基于遗传算法的任务调度优化"""
+    #     try:
+    #         # 获取受影响阵位
+    #         affected_positions = self._get_affected_positions(predictions)
+    #         if not affected_positions:
+    #             return {"predictions": predictions, "schedule": []}
+    #         print("Affected positions:", affected_positions)
+    #
+    #         # 获取需要调度的任务
+    #         tasks = self._fetch_tasks_to_schedule(affected_positions)
+    #         if not tasks:
+    #             return {"predictions": predictions, "schedule": []}
+    #         print("tasks:", tasks)
+    #
+    #         # 确保predictions与tasks一一对应
+    #         # if len(predictions) != len(tasks):
+    #         #     # 这里假设predictions是所有阵位的预测结果
+    #         #     # 我们需要筛选出只与当前任务相关的预测结果
+    #         #     task_position_ids = {task['current_position'] for task in tasks}
+    #         #     predictions = [p for p in predictions if int(p['position_id']) in task_position_ids]
+    #         #     # 如果仍然不匹配，使用默认的第一个预测结果
+    #         #     if len(predictions) != len(tasks):
+    #         #         predictions = [predictions[0]] * len(tasks)
+    #         # 在schedule_tasks方法中修改预测结果处理逻辑
+    #         if len(predictions) != len(tasks):
+    #             # 保留所有预测结果，不进行过滤
+    #             pass
+    #
+    #         # 获取可用阵位
+    #         all_positions = self._fetch_available_positions(affected_positions)
+    #         if not all_positions:
+    #             return {"predictions": predictions, "schedule": []}
+    #         print("all_positions:", all_positions)
+    #
+    #         # 运行遗传算法
+    #         best_individual = self._run_genetic_algorithm(tasks, all_positions)
+    #         if not best_individual:  # 如果没有找到合适的个体
+    #             return {"predictions": predictions, "schedule": []}
+    #         print("best_individual:", best_individual)
+    #
+    #         schedule_plan = self._generate_schedule_plan(best_individual, tasks, all_positions, predictions)
+    #         print("schedule_plan:", schedule_plan)
+    #         return {"predictions": predictions, "schedule": schedule_plan}
+    #
+    #     except Exception as e:
+    #         print(f"调度算法执行失败: {str(e)}")
+    #         traceback.print_exc()
+    #         return {"predictions": predictions, "schedule": []}
     def schedule_tasks(self, predictions):
-        """基于遗传算法的任务调度优化"""
         try:
-            # 获取受影响阵位
             affected_positions = self._get_affected_positions(predictions)
+            # 若没有阵位受影响，不必调度
             if not affected_positions:
                 return {"predictions": predictions, "schedule": []}
-            print("Affected positions:", affected_positions)
 
-            # 获取需要调度的任务
+            # 获取需要调度的任务（去重）
             tasks = self._fetch_tasks_to_schedule(affected_positions)
             if not tasks:
                 return {"predictions": predictions, "schedule": []}
-            print("tasks:", tasks)
 
-            # 确保predictions与tasks一一对应
-            # if len(predictions) != len(tasks):
-            #     # 这里假设predictions是所有阵位的预测结果
-            #     # 我们需要筛选出只与当前任务相关的预测结果
-            #     task_position_ids = {task['current_position'] for task in tasks}
-            #     predictions = [p for p in predictions if int(p['position_id']) in task_position_ids]
-            #     # 如果仍然不匹配，使用默认的第一个预测结果
-            #     if len(predictions) != len(tasks):
-            #         predictions = [predictions[0]] * len(tasks)
-            # 在schedule_tasks方法中修改预测结果处理逻辑
-            if len(predictions) != len(tasks):
-                # 保留所有预测结果，不进行过滤
-                pass
+            # 使用任务ID作为键，确保每个任务只被调度一次
+            task_dict = {task['task_id']: task for task in tasks}
+            unique_tasks = list(task_dict.values())
 
-            # 获取可用阵位
+            # 查询知识图谱，获取受到影响的阵位
             all_positions = self._fetch_available_positions(affected_positions)
             if not all_positions:
                 return {"predictions": predictions, "schedule": []}
-            print("all_positions:", all_positions)
 
-            # 运行遗传算法
-            best_individual = self._run_genetic_algorithm(tasks, all_positions)
-            if not best_individual:  # 如果没有找到合适的个体
+            best_individual = self._run_genetic_algorithm(unique_tasks, all_positions)
+            if not best_individual:
                 return {"predictions": predictions, "schedule": []}
-            print("best_individual:", best_individual)
 
-            schedule_plan = self._generate_schedule_plan(best_individual, tasks, all_positions, predictions)
-            print("schedule_plan:", schedule_plan)
+            schedule_plan = self._generate_schedule_plan(best_individual, unique_tasks, all_positions, predictions)
             return {"predictions": predictions, "schedule": schedule_plan}
-
         except Exception as e:
             print(f"调度算法执行失败: {str(e)}")
             traceback.print_exc()
             return {"predictions": predictions, "schedule": []}
+
+    def _merge_schedules(self, all_schedules):
+        """合并多个调度方案，解决资源冲突"""
+        merged = []
+        used_positions = set()
+
+        # 按优先级排序所有调度任务
+        all_tasks = []
+        for schedule in all_schedules:
+            for task in schedule['schedule']:
+                all_tasks.append({
+                    **task,
+                    'source_event': schedule['source_position_id']
+                })
+
+        # 按优先级和距离排序
+        sorted_tasks = sorted(
+            all_tasks,
+            key=lambda x: (-x['priority'], x['distance'])
+        )
+
+        for task in sorted_tasks:
+            if task['new_position'] not in used_positions:
+                merged.append(task)
+                used_positions.add(task['new_position'])
+
+        return merged
 
     def _setup_genetic_algorithm(self):
         """初始化遗传算法配置"""
@@ -78,7 +136,7 @@ class GeneticSchedulerService:
 
     def _get_affected_positions(self, predictions):
         """获取受影响阵位列表"""
-        # 目前影响概率大于10%就会触发调度
+        # 目前影响概率大于10% 影响时间大于0分钟 就会触发调度
         return [
             int(p['position_id']) for p in predictions
             if p['impact_probability'] > 0.1 and p['predicted_impact_time_minutes'] > 0
@@ -108,9 +166,15 @@ class GeneticSchedulerService:
         query = """
         MATCH (p:Position)
         WHERE NOT p.id IN $affected_ids
-        RETURN p
+        RETURN p.id as id,
+               p.name as name,
+               p.type as type,
+               p.x as x,
+               p.y as y,
+               p.sup_num as sup_num
         """
-        return [record['p'] for record in neo4j.graph.run(query, affected_ids=affected_positions)]
+        return list(neo4j.graph.run(query, affected_ids=affected_positions))
+
 
     def _run_genetic_algorithm(self, tasks, all_positions):
         """运行遗传算法"""
@@ -179,7 +243,6 @@ class GeneticSchedulerService:
             return 0.0,
 
         total_score = 0.0
-        penalty = 0
 
         # 按优先级排序任务
         sorted_tasks = sorted(self.current_tasks, key=lambda x: x['priority'], reverse=True)
@@ -190,22 +253,26 @@ class GeneticSchedulerService:
 
             if gene == 1:
                 task = sorted_tasks[i]
-                # 确保所有任务至少有一个调度方案
                 suitable_positions = [
                     p for p in self.current_positions
                     if p['type'] in task['required_position_types']
                 ]
 
                 if suitable_positions:
-                    # 优先选择距离近的阵位
                     original_pos = self._get_position_by_id(task["current_position"])
+                    # 综合考虑距离和支持任务数量
                     best_pos = min(
                         suitable_positions,
-                        key=lambda p: self._calculate_distance(original_pos, p)
+                        key=lambda p: (
+                                self._calculate_distance(original_pos, p) * 0.7 +  # 距离权重70%
+                                (1 / (p.get('sup_num', 1) + 0.1)) * 0.3  # 支持任务数权重30%
+                        )
                     )
-                    # 计算得分时考虑优先级权重
                     priority_weight = 1.0 + (task['priority'] * 0.2)
-                    total_score += priority_weight * (1 / (self._calculate_distance(original_pos, best_pos) + 0.1))
+                    total_score += priority_weight * (
+                            1 / (self._calculate_distance(original_pos, best_pos) + 0.1) * 0.7 +
+                            best_pos.get('sup_num', 1) * 0.3
+                    )
 
         return total_score,
 
@@ -237,7 +304,7 @@ class GeneticSchedulerService:
     def _estimate_move_time(self, pos1, pos2, speed=10):
         """预估移动时间（分钟）"""
         distance = self._calculate_distance(pos1, pos2)
-        return distance / speed + 5
+        return distance / speed + random.randint(1, 3)
 
     # 在_generate_schedule_plan方法中加强类型检查：
     # def _generate_schedule_plan(self, best_individual, tasks, all_positions, predictions):
@@ -337,6 +404,7 @@ class GeneticSchedulerService:
             'original_position_name': task['position_name'],
             'new_position': best_pos['id'],
             'new_position_name': best_pos['name'],
+            'new_position_sup_num': best_pos.get('sup_num', 1),  # 新增支持任务数
             'reason': f"原阵位受影响(概率{prediction['impact_probability']:.1%})",
             'priority': task['priority'],
             'deadline': task['deadline'],
