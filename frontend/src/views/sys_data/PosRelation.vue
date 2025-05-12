@@ -7,6 +7,34 @@
 
     <!-- 错误提示 -->
     <div v-if="error" class="error">{{ error }}</div>
+    <el-dialog
+    v-model="showDeleteRelationModal"
+    title="删除关系确认"
+    width="500px"
+    :close-on-click-modal="false"
+  >
+    <div class="delete-dialog-content">
+      <el-icon class="warning-icon"><Warning /></el-icon>
+      <div class="message-content">
+        <p>确定要删除以下阵位关系吗？</p>
+        <div class="relation-details">
+          <div><span class="label">源阵位:</span> {{ deletingRelation.sourceName }} (ID: {{ deletingRelation.sourceId }})</div>
+          <div><span class="label">目标阵位:</span> {{ deletingRelation.targetName }} (ID: {{ deletingRelation.targetId }})</div>
+          <div><span class="label">关系类型:</span> {{ deletingRelation.type }}</div>
+        </div>
+        <p class="warning-text">此操作不可撤销，请谨慎操作！</p>
+      </div>
+    </div>
+
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="showDeleteRelationModal = false">取消</el-button>
+        <el-button type="danger" @click="confirmDeleteRelation" :loading="deleting">
+          {{ deleting ? '删除中...' : '确认删除' }}
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
 
     <!-- 数据展示 -->
     <div v-if="relations.length > 0">
@@ -20,6 +48,7 @@
             <th>关系类型</th>
             <th>权重</th>
             <th>距离</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -32,6 +61,14 @@
 <!--            <td>{{ relation.weight }}</td>-->
             <td>{{ relation.strength }}</td>
             <td>{{ relation.distance }}</td>
+            <td>
+              <button
+                @click="openDeleteRelationModal(relation)"
+                class="delete-relation-btn"
+              >
+                删除
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -81,10 +118,15 @@
 </template>
 
 <script>
-import { fetchPosRelations } from '@/api/dashboard_fe.js'
+import {deleteRelation, fetchPosRelations} from '@/api/dashboard_fe.js'
+import {ElMessage} from "element-plus";
+import { Warning } from '@element-plus/icons-vue'
 
 export default {
   name: 'PositionRelations',
+  components: {
+    Warning
+  },
   data() {
     return {
       relations: [],
@@ -92,7 +134,22 @@ export default {
       error: null,
       currentPage: 1,
       pageSize: 10,
-      inputPage: 1
+      inputPage: 1,
+      showDeleteRelationModal: false,
+      deletingRelation: {
+      sourceId: '',
+      targetId: '',
+      type: '',
+
+      deleting: false,
+      deletingRelation: {
+      sourceId: '',
+      sourceName: '',
+      targetId: '',
+      targetName: '',
+      type: ''
+      }
+    }
     }
   },
   watch: {
@@ -150,8 +207,38 @@ export default {
     },
     resetPage() {
       this.currentPage = 1
+    },
+    openDeleteRelationModal(relation) {
+      this.deletingRelation = {
+        sourceId: relation.source_id,
+        sourceName: relation.source_name,
+        targetId: relation.target_id,
+        targetName: relation.target_name,
+        type: relation.relation_type
+      }
+      this.showDeleteRelationModal = true
+      this.deleting = false
+    },
+
+    async confirmDeleteRelation() {
+      this.deleting = true
+      try {
+        await deleteRelation(
+          this.deletingRelation.sourceId,
+          this.deletingRelation.targetId,
+          this.deletingRelation.type
+        )
+        ElMessage.success('关系删除成功')
+        await this.loadRelations()
+        this.showDeleteRelationModal = false
+      } catch (error) {
+        console.error('删除关系失败:', error)
+        ElMessage.error('删除关系失败: ' + (error.message || '未知错误'))
+      } finally {
+        this.deleting = false
+      }
     }
-  }
+  },
 }
 </script>
 
@@ -236,5 +323,61 @@ export default {
   padding: 5px;
   border-radius: 4px;
   border: 1px solid #dcdfe6;
+}
+.delete-relation-btn {
+  background-color: #ff4d4f;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.delete-relation-btn:hover {
+  background-color: #ff7875;
+}
+
+.delete-dialog-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.warning-icon {
+  font-size: 24px;
+  color: #e6a23c;
+  margin-top: 4px;
+}
+
+.message-content {
+  flex: 1;
+}
+
+.relation-details {
+  margin: 12px 0;
+  padding: 12px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+}
+
+.relation-details div {
+  margin-bottom: 8px;
+}
+
+.relation-details .label {
+  font-weight: bold;
+  color: #606266;
+  margin-right: 8px;
+}
+
+.warning-text {
+  color: #f56c6c;
+  font-size: 14px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 </style>

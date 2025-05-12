@@ -8,6 +8,35 @@
     <!-- 错误提示 -->
     <div v-if="error" class="error">{{ error }}</div>
 
+    <el-dialog
+      v-model="showDeleteRelationModal"
+      title="删除关系确认"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <div class="delete-dialog-content">
+        <el-icon class="warning-icon"><Warning /></el-icon>
+        <div class="message-content">
+          <p>确定要删除以下阵位与任务的关系吗？</p>
+          <div class="relation-details">
+            <div><span class="label">阵位:</span> {{ deletingRelation.positionName }} (ID: {{ deletingRelation.positionId }})</div>
+            <div><span class="label">任务:</span> {{ deletingRelation.taskName }} (ID: {{ deletingRelation.taskId }})</div>
+            <div><span class="label">关系类型:</span> {{ deletingRelation.type }}</div>
+          </div>
+          <p class="warning-text">此操作将取消任务分配，请谨慎操作！</p>
+        </div>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showDeleteRelationModal = false">取消</el-button>
+          <el-button type="danger" @click="confirmDeleteRelation" :loading="deleting">
+            {{ deleting ? '删除中...' : '确认删除' }}
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <!-- 数据展示 -->
     <div v-if="relations.length > 0">
       <table class="relations-table">
@@ -19,7 +48,7 @@
             <th>任务名称</th>
             <th>关系类型</th>
             <th>开始时间</th>
-<!--            <th>结束时间</th>-->
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -29,9 +58,15 @@
             <td>{{ relation.task_id }}</td>
             <td>{{ relation.task_name }}</td>
             <td>{{ relation.relation_type }}</td>
-<!--            <td>{{ relation.start_time || 'N/A' }}</td>-->
-<!--            <td>{{ relation.end_time || 'N/A' }}</td>-->
             <td>{{ formatDate(relation.assigned_time) }}</td>
+            <td>
+              <button
+                @click="openDeleteRelationModal(relation)"
+                class="delete-relation-btn"
+              >
+                删除
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -81,11 +116,16 @@
 </template>
 
 <script>
-import { fetchPosTaskRelations } from '@/api/dashboard_fe.js'
+import { fetchPosTaskRelations, deleteTaskAssignment } from '@/api/dashboard_fe.js'
 import dayjs from 'dayjs'
+import { ElMessage } from 'element-plus'
+import { Warning } from '@element-plus/icons-vue'
 
 export default {
   name: 'PositionTaskRelations',
+  components: {
+    Warning
+  },
   data() {
     return {
       relations: [],
@@ -93,7 +133,16 @@ export default {
       error: null,
       currentPage: 1,
       pageSize: 10,
-      inputPage: 1
+      inputPage: 1,
+      showDeleteRelationModal: false,
+      deleting: false,
+      deletingRelation: {
+        positionId: '',
+        positionName: '',
+        taskId: '',
+        taskName: '',
+        type: ''
+      }
     }
   },
   watch: {
@@ -155,12 +204,40 @@ export default {
     },
     formatDate(time) {
       if (!time) return 'N/A';
-    try {
-      return dayjs(time).format('YYYY-MM-DD HH:mm:ss');
-    } catch (e) {
-      console.error('时间格式化错误:', e);
-      return '无效时间';
-    }
+      try {
+        return dayjs(time).format('YYYY-MM-DD HH:mm:ss');
+      } catch (e) {
+        console.error('时间格式化错误:', e);
+        return '无效时间';
+      }
+    },
+    openDeleteRelationModal(relation) {
+      this.deletingRelation = {
+        positionId: relation.position_id,
+        positionName: relation.position_name,
+        taskId: relation.task_id,
+        taskName: relation.task_name,
+        type: relation.relation_type
+      }
+      this.showDeleteRelationModal = true
+      this.deleting = false
+    },
+    async confirmDeleteRelation() {
+      this.deleting = true
+      try {
+        await deleteTaskAssignment(
+          this.deletingRelation.taskId,
+          this.deletingRelation.positionId
+        )
+        ElMessage.success('关系删除成功')
+        await this.loadRelations()
+        this.showDeleteRelationModal = false
+      } catch (error) {
+        console.error('删除关系失败:', error)
+        ElMessage.error('删除关系失败: ' + (error.message || '未知错误'))
+      } finally {
+        this.deleting = false
+      }
     }
   }
 }
@@ -247,5 +324,62 @@ export default {
   padding: 5px;
   border-radius: 4px;
   border: 1px solid #dcdfe6;
+}
+
+.delete-relation-btn {
+  background-color: #ff4d4f;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.delete-relation-btn:hover {
+  background-color: #ff7875;
+}
+
+.delete-dialog-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.warning-icon {
+  font-size: 24px;
+  color: #e6a23c;
+  margin-top: 4px;
+}
+
+.message-content {
+  flex: 1;
+}
+
+.relation-details {
+  margin: 12px 0;
+  padding: 12px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+}
+
+.relation-details div {
+  margin-bottom: 8px;
+}
+
+.relation-details .label {
+  font-weight: bold;
+  color: #606266;
+  margin-right: 8px;
+}
+
+.warning-text {
+  color: #f56c6c;
+  font-size: 14px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 </style>

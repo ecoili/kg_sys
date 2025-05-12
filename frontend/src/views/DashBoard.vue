@@ -8,7 +8,8 @@
           <el-card shadow="hover">
             <div class="card-content">
               <div class="card-title">阵位数</div>
-              <div class="card-value">76</div>
+<!--              <div class="card-value">76</div>-->
+              <div class="card-value">{{ positionCount }}</div>
             </div>
           </el-card>
         </el-col>
@@ -16,7 +17,8 @@
           <el-card shadow="hover">
             <div class="card-content">
               <div class="card-title">任务总数</div>
-              <div class="card-value">100</div>
+<!--              <div class="card-value">100</div>-->
+              <div class="card-value">{{ taskCount }}</div>
             </div>
           </el-card>
         </el-col>
@@ -24,7 +26,8 @@
           <el-card shadow="hover">
             <div class="card-content">
               <div class="card-title">关系总数</div>
-              <div class="card-value">201</div>
+<!--              <div class="card-value">201</div>-->
+              <div class="card-value">{{ relationCount }}</div>
             </div>
           </el-card>
         </el-col>
@@ -50,7 +53,7 @@
 <script setup>
 import {onMounted, ref, watch} from 'vue'
 import { useRouter } from 'vue-router'
-import {fetchPositions, fetchTasks} from '@/api/dashboard_fe.js'
+import {fetchPositions, fetchTasks, fetchPosRelations, fetchPosTaskRelations} from '@/api/dashboard_fe.js'
 import * as echarts from 'echarts'
 const positionMap = ref(null)
 const taskChart = ref(null)
@@ -59,18 +62,39 @@ const router = useRouter()
 const positions = ref([])
 const tasks = ref([])
 const relations = ref([])
+const positionCount = ref(0)
+const taskCount = ref(0)
+const relationCount = ref(0)
 
-// 可以在这里添加初始化逻辑
-onMounted(async() => {
-  // 获取仪表板数据
+// 获取仪表板统计数据
+const fetchDashboardStats = async () => {
   try {
+    // 获取阵位数据
     positions.value = await fetchPositions()
+    positionCount.value = positions.value.length
+
+    // 获取任务数据
     tasks.value = await fetchTasks()
+    taskCount.value = tasks.value.length
+
+    // 获取阵位间关系数据
+    const posRelations = await fetchPosRelations()
+    // 获取阵位任务关系数据
+    const posTaskRelations = await fetchPosTaskRelations()
+
+    // 计算总关系数
+    relationCount.value = posRelations.length + posTaskRelations.length
+
+    // 初始化图表
     initPositionMap()
     initTaskChart()
   } catch (error) {
     console.error('初始化数据失败:', error)
   }
+}
+// 可以在这里添加初始化逻辑
+onMounted(() => {
+  fetchDashboardStats()
 })
 // 初始化阵位地图
 const initPositionMap = () => {
@@ -165,7 +189,7 @@ const initTaskChart = () => {
 
   const option = {
     title: {
-      text: '任务状态概览',
+      // text: '任务状态概览',
       left: 'center'
     },
     tooltip: {

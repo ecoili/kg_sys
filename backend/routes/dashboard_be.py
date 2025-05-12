@@ -10,51 +10,6 @@ from datetime import datetime, timedelta
 dashboard_bp = Blueprint('dashboard_be', __name__)
 
 
-@dashboard_bp.route('/emergency/simulate', methods=['POST'])
-def predict():
-    try:
-        data = request.get_json()
-        print(f"Received data: {data}")
-        position_id = int(data['position_id'])
-        event_type = data['event_type']
-        severity = float(data['severity'])
-        duration = float(data['duration'])
-
-        #  调用预测函数 方式一
-        # predictions = predict_single_position(
-        #     model, graph_data, position_id, event_type, severity, duration,
-        #     node_id_map, event_type_map, reverse_node_id_map
-        # )
-
-        # 使用PredictionService进行预测 方式二
-        service = PredictionService(
-            model_path="E:/py_prjs/flask3/backend/models/pths/rgcn_gat_transformer_multitask.pth",
-            positions_file="E:/py_prjs/flask3/backend/models/data/positions.csv",
-            relations_file="E:/py_prjs/flask3/backend/models/data/relations.csv"
-        )
-        predictions = service.predict_impact(position_id, event_type, severity, duration)
-
-        if predictions is None:
-            # return jsonify({"error": "Prediction failed"}), 500
-            return error_response(message='Prediction failed', code=400)
-        # 将预测结果转换为JSON格式,确保所有数值都是Python原生类型
-        result = [
-            {
-                "position_id": int(pred['position_id']),
-                "impact_probability": float(pred['impact_probability']),  # 显式转换为float
-                "is_affected": bool(pred['is_affected']),  # 显式转换为bool
-                # "predicted_impact_time_minutes": float(pred['predicted_impact_time_minutes'])
-                "predicted_impact_time_minutes": int(pred['predicted_impact_time_minutes'])
-            }
-            for pred in predictions
-        ]
-        # return jsonify(result)
-        return success_response(result)
-    except Exception as e:
-        # return jsonify({"error": str(e)}), 500
-        return error_response(message=str(e), code=500)
-
-
 @dashboard_bp.route('/getpositions', methods=['GET'])
 def get_positions():
     try:
@@ -120,6 +75,7 @@ def get_position_relations():
 # def delete_position(position_id):
 #     # 实现删除阵位逻辑
 #     pass
+
 
 @dashboard_bp.route('/getpositiontaskrelations', methods=['GET'])
 def get_position_task_relations():
@@ -321,5 +277,315 @@ def assign_task_to_position(task_id, position_id):
         neo4j.graph.push(task)
 
         return success_response(message="任务分配成功")
+    except Exception as e:
+        return error_response(message=str(e), code=500)
+
+
+@dashboard_bp.route('/position', methods=['POST'])
+def add_position():
+    try:
+        data = request.get_json()
+        # 验证必要字段
+        required_fields = ['type', 'x', 'y', 'impt_lv', 'sup_num']
+        if not all(field in data for field in required_fields):
+            return error_response(message='缺少必要字段', code=400)
+
+        # 获取当前最大阵位ID
+        result = neo4j.graph.run("MATCH (p:Position) RETURN max(p.id) as max_id").data()
+        max_id = result[0]['max_id'] if result and result[0]['max_id'] else 0
+        new_id = max_id + 1
+
+        # 获取该类型阵位的最大编号
+        pos_type = data['type']
+        type_positions = neo4j.graph.run(
+            "MATCH (p:Position {type: $type}) RETURN p.name as name",
+            type=pos_type
+        ).data()
+
+        if type_positions:
+            # 提取数字部分并找到最大值
+            max_type_num = max(int(p['name'].replace(pos_type, '')) for p in type_positions)
+            new_type_num = max_type_num + 1
+        else:
+            new_type_num = 1
+
+        # 创建阵位节点
+        position = Node(
+            "Position",
+            id=new_id,
+            name=f"{pos_type}{new_type_num}",
+            x=int(data['x']),
+            y=int(data['y']),
+            type=data['type'],
+            type_identity=f"{pos_type}_type",  # 示例值，根据实际情况调整
+            impt_lv=int(data['impt_lv']),
+            flr_rate=0.1,  # 示例值
+            sup_num=int(data['sup_num']),
+            allocated_tasknum=0
+        )
+        neo4j.graph.create(position)
+
+        return success_response({"id": new_id}, message="阵位创建成功")
+    except Exception as e:
+        return error_response(message=str(e), code=500)
+
+
+@dashboard_bp.route('/position/<int:position_id>', methods=['PUT'])
+def update_position(position_id):
+    try:
+        data = request.get_json()
+        # 检查阵位是否存在
+        position = neo4j.graph.nodes.match("Position", id=position_id).first()
+        if not position:
+            return error_response(message='阵位不存在', code=404)
+
+        # 更新可修改的字段
+        updatable_fields = ['impt_lv', 'sup_num', 'x', 'y']
+        for field in updatable_fields:
+            if field in data:
+                position[field] = data[field]
+
+        neo4j.graph.push(position)
+        return success_response(message="阵位更新成功")
+    except Exception as e:
+        return error_response(message=str(e), code=500)
+
+
+@dashboard_bp.route('/position/<int:position_id>', methods=['DELETE'])
+def delete_position(position_id):
+    try:
+        # 检查阵位是否存在
+        position = neo4j.graph.nodes.match("Position", id=position_id).first()
+        if not position:
+            return error_response(message='阵位不存在', code=404)
+
+        # 检查是否有任务关联
+        task_count = neo4j.graph.run("""
+            MATCH (p:Position)<-[:ASSIGNED_TO]-(t:Task)
+            WHERE p.id = $position_id
+            RETURN count(t) as count
+        """, position_id=position_id).evaluate()
+
+        if task_count > 0:
+            return error_response(message='该阵位有任务关联，无法删除', code=400)
+
+        # 删除所有关系
+        neo4j.graph.run("""
+            MATCH (p:Position {id: $position_id})-[r]-()
+            DELETE r
+        """, position_id=position_id)
+
+        # 删除节点
+        neo4j.graph.run("""
+            MATCH (p:Position {id: $position_id})
+            DELETE p
+        """, position_id=position_id)
+
+        return success_response(message="阵位删除成功")
+    except Exception as e:
+        return error_response(message=str(e), code=500)
+
+
+@dashboard_bp.route('/position/<int:position_id>/relations', methods=['GET'])
+def get_single_position_relations(position_id):
+    try:
+        # 查询阵位与其他阵位的关系
+        query = """
+        MATCH (p:Position {id: $position_id})-[r]-(other:Position)
+        RETURN p.id as source_id, p.name as source_name,
+               other.id as target_id, other.name as target_name,
+               type(r) as relation_type
+        """
+        result = neo4j.graph.run(query, position_id=position_id).data()
+        return success_response(result)
+    except Exception as e:
+        return error_response(message=str(e), code=500)
+
+
+@dashboard_bp.route('/position/<int:position_id>/taskrelations', methods=['GET'])
+def get_single_position_task_relations(position_id):
+    try:
+        # 查询阵位与任务的关系
+        query = """
+        MATCH (p:Position {id: $position_id})<-[:ASSIGNED_TO]-(t:Task)
+        RETURN t.id as task_id, t.name as task_name
+        """
+        result = neo4j.graph.run(query, position_id=position_id).data()
+        return success_response(result)
+    except Exception as e:
+        return error_response(message=str(e), code=500)
+
+
+@dashboard_bp.route('/checkposition', methods=['POST'])
+def check_position():
+    try:
+        data = request.get_json()
+        # 验证必要字段
+        required_fields = ['x', 'y']
+        if not all(field in data for field in required_fields):
+            return error_response(message='缺少必要字段', code=400)
+
+        # 检查是否有相同位置的阵位
+        query = """
+        MATCH (p:Position)
+        WHERE p.x = $x AND p.y = $y
+        RETURN count(p) as count
+        """
+        result = neo4j.graph.run(query, x=float(data['x']), y=float(data['y'])).data()
+        count = result[0]['count'] if result else 0
+
+        return success_response({"exists": count > 0})
+    except Exception as e:
+        return error_response(message=str(e), code=500)
+
+
+@dashboard_bp.route('/checkpositionexc', methods=['POST'])
+def check_position_exc():
+    try:
+        data = request.get_json()
+        required_fields = ['x', 'y']
+        if not all(field in data for field in required_fields):
+            return error_response(message='缺少必要字段', code=400)
+
+        # 构建查询条件
+        query_conditions = "p.x = $x AND p.y = $y"
+        params = {'x': float(data['x']), 'y': float(data['y'])}
+
+        # 如果有排除ID，添加到条件中
+        if 'excludeId' in data:
+            query_conditions += " AND p.id <> $excludeId"
+            params['excludeId'] = int(data['excludeId'])
+
+        query = f"""
+        MATCH (p:Position)
+        WHERE {query_conditions}
+        RETURN count(p) as count
+        """
+        result = neo4j.graph.run(query, **params).data()
+        count = result[0]['count'] if result else 0
+
+        return success_response({"exists": count > 0})
+    except Exception as e:
+        return error_response(message=str(e), code=500)
+
+
+@dashboard_bp.route('/checkrelation', methods=['GET'])
+def check_relation():
+    try:
+        source_id = request.args.get('sourceId', type=int)
+        target_id = request.args.get('targetId', type=int)
+        rel_type = request.args.get('type', type=str)
+
+        query = """
+        MATCH (s:Position {id: $source_id})-[r]-(t:Position {id: $target_id})
+        WHERE type(r) = $rel_type
+        RETURN count(r) as count
+        """
+        result = neo4j.graph.run(query, source_id=source_id,
+                               target_id=target_id, rel_type=rel_type).data()
+        count = result[0]['count'] if result else 0
+
+        return success_response({"exists": count > 0})
+    except Exception as e:
+        return error_response(message=str(e), code=500)
+
+
+@dashboard_bp.route('/addrelation', methods=['POST'])
+def add_relation():
+    try:
+        data = request.get_json()
+        required_fields = ['sourceId', 'targetId', 'type']
+        if not all(field in data for field in required_fields):
+            return error_response(message='缺少必要字段', code=400)
+
+        # 获取节点
+        source = neo4j.graph.nodes.match("Position", id=int(data['sourceId'])).first()
+        target = neo4j.graph.nodes.match("Position", id=int(data['targetId'])).first()
+
+        if not source or not target:
+            return error_response(message='源或目标阵位不存在', code=404)
+
+        # 创建关系
+        if data['type'] == 'CONNECTION':
+            rel = Relationship(source, "CONNECTION", target,
+                               strength=float(data.get('strength', 0.5)),
+                               distance=float(data.get('distance', 0.0)))
+        elif data['type'] == 'INFLUENCE':
+            rel = Relationship(source, "INFLUENCE", target,
+                               strength=float(data.get('strength', 0.5)))
+        else:
+            return error_response(message='无效的关系类型', code=400)
+
+        neo4j.graph.create(rel)
+        return success_response(message="关系添加成功")
+    except Exception as e:
+        return error_response(message=str(e), code=500)
+
+
+@dashboard_bp.route('/deleterelation', methods=['DELETE'])
+def delete_relation():
+    try:
+        data = request.get_json()
+        required_fields = ['sourceId', 'targetId', 'type']
+        if not all(field in data for field in required_fields):
+            return error_response(message='缺少必要字段', code=400)
+
+        # 检查关系是否存在，与方向无关
+        query = """
+        MATCH (s:Position {id: $source_id})-[r]-(t:Position {id: $target_id})
+        WHERE type(r) = $rel_type
+        DELETE r
+        RETURN count(r) as deleted_count
+        """
+        result = neo4j.graph.run(query,
+                                 source_id=int(data['sourceId']),
+                                 target_id=int(data['targetId']),
+                                 rel_type=data['type']).data()
+
+        if not result or result[0]['deleted_count'] == 0:
+            return error_response(message='关系不存在', code=404)
+
+        return success_response(message="关系删除成功")
+    except Exception as e:
+        return error_response(message=str(e), code=500)
+
+
+@dashboard_bp.route('/task/<string:task_id>/unassign/<int:position_id>', methods=['DELETE'])
+def unassign_task_from_position(task_id, position_id):
+    try:
+        # 检查任务和阵位是否存在
+        task = neo4j.graph.nodes.match("Task", id=task_id).first()
+        position = neo4j.graph.nodes.match("Position", id=position_id).first()
+
+        if not task:
+            return error_response(message='任务不存在', code=404)
+        if not position:
+            return error_response(message='阵位不存在', code=404)
+
+        # 检查任务是否已分配
+        if task['status'] != '已分配' or 'current_position' not in task:
+            return error_response(message='任务未分配，无需取消', code=400)
+
+        # 检查是否是分配给当前阵位的
+        if task['current_position'] != position_id:
+            return error_response(message='任务不是分配给此阵位的', code=400)
+
+        # 删除分配关系
+        neo4j.graph.run("""
+            MATCH (t:Task {id: $task_id})-[r:ASSIGNED_TO]->(p:Position {id: $position_id})
+            DELETE r
+        """, task_id=task_id, position_id=position_id)
+
+        # 更新阵位的已分配任务数
+        position['allocated_tasknum'] -= 1
+        neo4j.graph.push(position)
+
+        # 更新任务状态
+        task['status'] = '待分配'
+        task['current_position'] = None
+        task['current_position_name'] = None
+        neo4j.graph.push(task)
+
+        return success_response(message="任务取消分配成功")
     except Exception as e:
         return error_response(message=str(e), code=500)

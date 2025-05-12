@@ -92,84 +92,12 @@
           <label>支持任务数(0-5):</label>
           <input v-model.number="editingPosition.sup_num" type="number" min="0" max="5" class="form-input">
         </div>
-        <div class="form-group">
-          <label>X坐标:</label>
-          <input
-            v-model.number="editingPosition.x"
-            type="number"
-            class="form-input"
-            @blur="checkPosition(editingPosition.x, editingPosition.y, editingPosition.id)"
-          >
-        </div>
-        <div class="form-group">
-          <label>Y坐标:</label>
-          <input
-            v-model.number="editingPosition.y"
-            type="number"
-            class="form-input"
-            @blur="checkPosition(editingPosition.x, editingPosition.y, editingPosition.id)"
-          >
-        </div>
         <div class="modal-actions">
           <button @click="updatePosition" class="confirm-btn">确认</button>
           <button @click="showEditModal = false" class="cancel-btn">取消</button>
         </div>
       </div>
     </div>
-
-<!--    添加关系模态框-->
-    <div v-if="showAddRelationModal" class="modal-overlay">
-  <div class="modal-content">
-    <h3>添加阵位关系</h3>
-    <div class="form-group">
-      <label>源阵位:</label>
-      <select v-model="newRelation.sourceId" class="form-input" @change="calculateDistance">
-        <option v-for="pos in positions" :key="pos.id" :value="pos.id">
-          {{ pos.id }}:{{ pos.name }} ({{ pos.x }},{{ pos.y }})
-        </option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>目标阵位:</label>
-      <select v-model="newRelation.targetId" class="form-input" @change="calculateDistance">
-        <option v-for="pos in positions" :key="pos.id" :value="pos.id">
-          {{ pos.id }}:{{ pos.name }} ({{ pos.x }},{{ pos.y }})
-        </option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>关系类型:</label>
-      <select v-model="newRelation.type" class="form-input">
-        <option value="CONNECTION">连接关系</option>
-        <option value="INFLUENCE">影响关系</option>
-      </select>
-    </div>
-    <div class="form-group" v-if="newRelation.type === 'CONNECTION'">
-      <label>计算距离:</label>
-      <input v-model.number="newRelation.distance" type="number" step="0.1" class="form-input" readonly>
-    </div>
-    <div class="form-group">
-      <label>强度:</label>
-      <input v-model.number="newRelation.strength" type="number" step="0.1" min="0" max="1" class="form-input">
-    </div>
-    <div class="modal-actions">
-      <button @click="addNewRelation" class="confirm-btn">确认</button>
-      <button @click="showAddRelationModal = false" class="cancel-btn">取消</button>
-    </div>
-  </div>
-</div>
-    <!-- 删除关系确认模态框 -->
-    <div v-if="showDeleteRelationModal" class="modal-overlay">
-  <div class="modal-content">
-    <h3>确认删除关系</h3>
-    <p>确定要删除阵位 {{ deletingRelation.sourceId }} 和 {{ deletingRelation.targetId }} 之间的 {{ deletingRelation.type }} 关系吗？</p>
-
-    <div class="modal-actions">
-      <button @click="confirmDeleteRelation" class="confirm-btn">确认删除</button>
-      <button @click="showDeleteRelationModal = false" class="cancel-btn">取消</button>
-    </div>
-  </div>
-</div>
 
     <!-- 删除确认模态框 -->
     <div v-if="showDeleteModal" class="modal-overlay">
@@ -288,18 +216,7 @@
 </template>
 
 <script>
-import {
-  fetchPositions,
-  addPosition,
-  updatePosition,
-  deletePosition,
-  getPositionRelations,
-  getPositionTaskRelations,
-  checkPosition,
-  checkPositionExc,
-  checkRelation,
-  deleteRelation, addRelation
-} from '@/api/dashboard_fe.js'
+import { fetchPositions, addPosition, updatePosition, deletePosition, getPositionRelations, getPositionTaskRelations, checkPosition } from '@/api/dashboard_fe.js'
 import { ElMessage } from 'element-plus'
 
 export default {
@@ -319,8 +236,6 @@ export default {
       showAddModal: false,
       showEditModal: false,
       showDeleteModal: false,
-      showAddRelationModal: false,
-      showDeleteRelationModal: false,
       newPosition: {
         type: '跑道',
         x: 0,
@@ -328,18 +243,6 @@ export default {
         impt_lv: 1,
         sup_num: 1
       },
-      newRelation: {
-      sourceId: '',
-      targetId: '',
-      type: 'CONNECTION',
-      strength: 0.5,
-      distance: 0 // 初始为0，会自动计算
-    },
-      deletingRelation: {
-      sourceId: '',
-      targetId: '',
-      type: ''
-    },
       editingPosition: {},
       deletingPosition: {},
       relatedPositions: [],
@@ -427,37 +330,11 @@ export default {
       this.editingPosition = { ...position }
       this.showEditModal = true
     },
-    async checkPositionExc(x, y, excludeId = null) {
-      try {
-        const params = { x, y }
-        if (excludeId) params.excludeId = excludeId
-
-        const response = await checkPositionExc(params)
-        return response.exists
-      } catch (error) {
-        console.error('检查位置失败:', error)
-        return false
-      }
-    },
     async updatePosition() {
       try {
-        // 检查新坐标是否已被占用（排除自身）
-        const res = await this.checkPositionExc(
-          this.editingPosition.x,
-          this.editingPosition.y,
-          this.editingPosition.id
-        )
-
-        if (res.exists) {
-          ElMessage.error('该位置已存在其他阵位，请选择其他位置')
-          return
-        }
-
         await updatePosition(this.editingPosition.id, {
           impt_lv: this.editingPosition.impt_lv,
-          sup_num: this.editingPosition.sup_num,
-          x: this.editingPosition.x,  // 添加x坐标
-          y: this.editingPosition.y   // 添加y坐标
+          sup_num: this.editingPosition.sup_num
         })
         this.showEditModal = false
         await this.loadPositions()
@@ -467,110 +344,37 @@ export default {
         ElMessage.error('更新阵位失败')
       }
     },
-    // 在 methods 中添加 checkPosition 方法
     async checkPosition(x, y) {
       try {
-        const response = await checkPosition({ x, y })
-        console.log("响应的exists", response.exists)
-        return response.exists
+        const response = await checkPosition({ x, y });
+        return response.exists;
       } catch (error) {
         console.error('检查位置失败:', error);
         return false;
       }
     },
-
-    // 修改 addNewPosition 方法
     async addNewPosition() {
-  try {
-    // 检查位置是否重复
-    const res = await checkPosition({
-      x: this.newPosition.x,
-      y: this.newPosition.y
-    })
-    // console.log("exists的值：", exists)
-    if (res.exists) {  // 而不是 response.exists
-      ElMessage.error('该位置已存在阵位，请选择其他位置')
-      return
-    }
-
-    const response = await addPosition(this.newPosition)
-    this.showAddModal = false
-    this.newPosition = {
-      type: '跑道',
-      x: 0,
-      y: 0,
-      impt_lv: 1,
-      sup_num: 1
-    }
-    await this.loadPositions()
-    ElMessage.success(`添加成功，新阵位ID: ${response.id}`)
-  } catch (error) {
-    console.error('添加阵位失败:', error)
-    ElMessage.error('添加阵位失败')
-  }
-},
-    // async checkRelationExists(sourceId, targetId, type) {
-    //   try {
-    //     const response = await api.get('/checkrelation', {
-    //       params: { sourceId, targetId, type }
-    //     });
-    //     return response.exists;
-    //   } catch (error) {
-    //     console.error('检查关系失败:', error);
-    //     return false;
-    //   }
-    // },
-    async addNewRelation() {
-      // 检查是否选择了两个不同的阵位
-      if (!this.newRelation.sourceId || !this.newRelation.targetId) {
-        ElMessage.warning('请选择源阵位和目标阵位');
+      // 检查位置是否重复
+      const positionExists = await this.checkPosition(this.newPosition.x, this.newPosition.y);
+      if (positionExists) {
+        ElMessage.error('该位置已存在阵位，请选择其他位置');
         return;
       }
-
-      if (this.newRelation.sourceId === this.newRelation.targetId) {
-        ElMessage.warning('不能选择相同的阵位');
-        return;
-      }
-
-      // 检查是否已存在相同关系
-      const relationExists = await checkRelation(
-        this.newRelation.sourceId,
-        this.newRelation.targetId,
-        this.newRelation.type
-      )
-
-      if (relationExists.exists) {
-        ElMessage.warning('相同类型的关系已存在');
-        return;
-      }
-
       try {
-        // 如果是影响关系，不需要距离属性
-        const payload = {
-          sourceId: this.newRelation.sourceId,
-          targetId: this.newRelation.targetId,
-          type: this.newRelation.type,
-          strength: this.newRelation.strength
+        const response = await addPosition(this.newPosition)
+        this.showAddModal = false
+        this.newPosition = {
+          type: '跑道',
+          x: 0,
+          y: 0,
+          impt_lv: 1,
+          sup_num: 1
         }
-
-        // 只有连接关系需要距离
-        if (this.newRelation.type === 'CONNECTION') {
-          payload.distance = parseFloat(this.newRelation.distance);
-        }
-
-        await addRelation(payload)
-        this.showAddRelationModal = false;
-        this.newRelation = {
-          sourceId: '',
-          targetId: '',
-          type: 'CONNECTION',
-          strength: 0.5,
-          distance: 0
-        };
-        ElMessage.success('关系添加成功');
+        await this.loadPositions()
+        ElMessage.success(`添加成功，新阵位ID: ${response.id}`)
       } catch (error) {
-        console.error('添加关系失败:', error);
-        ElMessage.error('添加关系失败');
+        console.error('添加阵位失败:', error)
+        ElMessage.error('添加阵位失败')
       }
     },
     async openDeleteModal(position) {
@@ -592,18 +396,6 @@ export default {
         ElMessage.error('获取关联关系失败')
       }
     },
-    calculateDistance() {
-      if (this.newRelation.sourceId && this.newRelation.targetId) {
-        const source = this.positions.find(p => p.id === this.newRelation.sourceId);
-        const target = this.positions.find(p => p.id === this.newRelation.targetId);
-
-        if (source && target) {
-          const dx = source.x - target.x;
-          const dy = source.y - target.y;
-          this.newRelation.distance = Number(Math.sqrt(dx * dx + dy * dy).toFixed(2));
-        }
-      }
-    },
     async confirmDeletePosition() {
       try {
         if (this.relatedTasks.length > 0) {
@@ -619,31 +411,7 @@ export default {
         console.error('删除阵位失败:', error)
         ElMessage.error('删除阵位失败')
       }
-    },
-    openDeleteRelationModal(relation) {
-    this.deletingRelation = {
-      sourceId: relation.source_id,
-      targetId: relation.target_id,
-      type: relation.relation_type
-    };
-    this.showDeleteRelationModal = true;
-  },
-    async confirmDeleteRelation() {
-    try {
-      await deleteRelation(
-        this.deletingRelation.sourceId,
-        this.deletingRelation.targetId,
-        this.deletingRelation.type
-      );
-      this.showDeleteRelationModal = false;
-      ElMessage.success('关系删除成功');
-      // 刷新关系数据
-      await this.loadPositions();
-    } catch (error) {
-      console.error('删除关系失败:', error);
-      ElMessage.error('删除关系失败');
     }
-  }
   }
 }
 </script>
@@ -830,10 +598,9 @@ export default {
 }
 
 .form-group label {
-  display: inline-block;
-  width: 120px; /* 调整宽度以适应文本 */
+  display: block;
+  margin-bottom: 5px;
   font-weight: bold;
-  vertical-align: middle;
 }
 
 .form-input {
@@ -873,95 +640,4 @@ export default {
   font-weight: bold;
   margin-bottom: 15px;
 }
-
-.relation-help {
-  margin-top: 15px;
-  padding: 10px;
-  background-color: #f5f5f5;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.relation-help ul {
-  margin: 5px 0 0 20px;
-  padding: 0;
-}
-
-/* 添加关系按钮样式 */
-.relation-btn {
-  background-color: #9C27B0; /* 紫色 */
-  color: white;
-}
-
-/* 模态框样式增强 */
-.modal-content h3 {
-  margin-top: 0;
-  color: #333;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 10px;
-}
-
-.form-group {
-  display: flex;
-  align-items: center;
-  margin-bottom: 15px;
-}
-
-.form-group label {
-  min-width: 140px; /* 增加最小宽度以容纳完整文本 */
-  white-space: nowrap; /* 防止标签文字换行 */
-  font-weight: bold;
-  margin-right: 10px;
-}
-
-.form-input {
-  width: calc(100% - 110px);
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  display: inline-block;
-}
-
-/* 关系类型选择器的特定样式 */
-.form-input[type="number"] {
-  width: 80px;
-}
-
-/* 模态框按钮布局 */
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 20px;
-  gap: 10px;
-}
-
-/* 响应式调整 */
-@media (max-width: 600px) {
-  .form-group label {
-    display: block;
-    width: 100%;
-    margin-bottom: 5px;
-  }
-
-  .form-input {
-    width: 100%;
-  }
-
-  .search-filter-container {
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .action-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .action-btn {
-    width: 100%;
-    margin-right: 0;
-  }
-}
-
 </style>

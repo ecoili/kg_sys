@@ -93,7 +93,7 @@ export const getCaptcha = async () => {
 // 用户注册
 export const register = (data) => {
   return api.post('/auth/register', data);
-};
+}
 
 // 用户登录
 export const login = async (loginData) => {
@@ -124,4 +124,4 @@ export const forgotPassword = (phone) => {
 // 重置密码
 export const resetPassword = (data) => {
   return api.post('/auth/reset-password', data);
-};
+}

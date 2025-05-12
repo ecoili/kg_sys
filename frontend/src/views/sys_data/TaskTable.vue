@@ -33,7 +33,7 @@
           <option value="">所有状态</option>
           <option value="已分配">已分配</option>
           <option value="待分配">待分配</option>
-          <option value="已完成">已完成</option>
+<!--          <option value="已完成">已完成</option>-->
         </select>
       </div>
     </div>
@@ -79,14 +79,14 @@
           <label>优先级(1-5):</label>
           <input v-model.number="editingTask.priority" type="number" min="1" max="5" class="form-input">
         </div>
-        <div class="form-group">
-          <label>状态:</label>
-          <select v-model="editingTask.status" class="form-input">
-            <option value="待分配">待分配</option>
-            <option value="已分配">已分配</option>
-            <option value="已完成">已完成</option>
-          </select>
-        </div>
+<!--        <div class="form-group">-->
+<!--          <label>状态:</label>-->
+<!--          <select v-model="editingTask.status" class="form-input">-->
+<!--            <option value="待分配">待分配</option>-->
+<!--            <option value="已分配">已分配</option>-->
+<!--            <option value="已完成">已完成</option>-->
+<!--          </select>-->
+<!--        </div>-->
         <div class="modal-actions">
           <button @click="updateTask" class="confirm-btn">确认</button>
           <button @click="showEditModal = false" class="cancel-btn">取消</button>
@@ -269,7 +269,12 @@ export default {
         filtered = filtered.filter(t => t.status === this.selectedStatus)
       }
 
-      return filtered
+      return filtered.sort((a, b) => {
+      // 提取ID中的数字部分进行比较
+      const numA = parseInt(a.id.substring(1));
+      const numB = parseInt(b.id.substring(1));
+      return numA - numB;
+    })
     },
     // 分页数据
     paginatedTasks() {
@@ -357,12 +362,14 @@ export default {
 
     async addNewTask() {
       try {
-        await addTask(this.newTask);
+        const response = await addTask(this.newTask)
         this.showAddModal = false;
         this.newTask = { type: '加油', duration: 5, priority: 3 };
-        await this.loadTasks();
+        await this.loadTasks()
+        ElMessage.success(`添加成功，新任务ID: ${response.id}`)
       } catch (error) {
-        console.error('添加任务失败:', error);
+        console.error('添加任务失败:', error)
+        ElMessage.error("添加任务失败")
       }
     },
 

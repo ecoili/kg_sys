@@ -40,15 +40,15 @@ const routes = [
         redirect: '/app/emergency/report',
         children: [
           {
-            path: 'posiinfo',
+            path: 'posinfo',
             name: 'PositionTable',
-            meta: { title: '阵位信息' },
+            meta: { title: '阵位信息管理' },
             component: () => import('@/views/sys_data/PosTable.vue')
           },
           {
             path: 'taskinfo',
             name: 'TaskTable',
-            meta: { title: '任务信息' },
+            meta: { title: '任务信息管理' },
             component: () => import('@/views/sys_data/TaskTable.vue')
           },
           {
@@ -57,12 +57,12 @@ const routes = [
           meta: { title: '阵位间关系' },
           component: () => import('@/views/sys_data/PosRelation.vue')
           },
-          // {
-          // path: 'postaskrel',
-          // name: 'PosTaskRel',
-          // meta: { title: '阵位和任务关系' },
-          // component: () => import('@/views/sys_data/PosTaskRel.vue')
-          // }
+          {
+          path: 'postaskrel',
+          name: 'PosTaskRel',
+          meta: { title: '阵位与任务间关系' },
+          component: () => import('@/views/sys_data/PosTaskRel.vue')
+          }
         ]
       },
       {
