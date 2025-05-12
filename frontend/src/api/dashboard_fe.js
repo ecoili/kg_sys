@@ -31,7 +31,11 @@ export const deleteTask = async (taskId) => {
 }
 
 export const updateTask = async (taskId, updateData) => {
-  return await api.put(`/task/${taskId}`, updateData);
+  // 如果updateData中有deadline且是Date对象，转换为ISO字符串
+  if (updateData.deadline && updateData.deadline instanceof Date) {
+    updateData.deadline = updateData.deadline.toISOString()
+  }
+  return await api.put(`/task/${taskId}`, updateData)
 }
 
 export const assignTaskToPosition = async (taskId, positionId) => {

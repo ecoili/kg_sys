@@ -226,7 +226,7 @@ def update_task(task_id):
             return error_response(message='任务不存在', code=404)
 
         # 更新可修改的字段
-        updatable_fields = ['duration', 'priority', 'status']
+        updatable_fields = ['duration', 'priority', 'status', 'deadline']
         for field in updatable_fields:
             if field in data:
                 task[field] = data[field]

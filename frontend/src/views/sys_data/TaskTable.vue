@@ -79,6 +79,15 @@
           <label>优先级(1-5):</label>
           <input v-model.number="editingTask.priority" type="number" min="1" max="5" class="form-input">
         </div>
+        <div class="form-group">
+          <label>截止时间:</label>
+          <input
+            v-model="editingTask.deadline"
+            type="datetime-local"
+            class="form-input"
+            :min="getCurrentDateTime()"
+          >
+        </div>
 <!--        <div class="form-group">-->
 <!--          <label>状态:</label>-->
 <!--          <select v-model="editingTask.status" class="form-input">-->
@@ -239,7 +248,7 @@ export default {
       assigningTask: {},
       suitablePositions: [],
       selectedPosition: null,
-      positions: []
+      positions: [],
     }
   },
   watch: {
@@ -375,15 +384,22 @@ export default {
 
     openEditModal(task) {
       this.editingTask = { ...task };
+      // 将ISO格式的截止时间转换为datetime-local可接受的格式
+      if (this.editingTask.deadline) {
+        this.editingTask.deadline = dayjs(this.editingTask.deadline).format('YYYY-MM-DDTHH:mm');
+      }
       this.showEditModal = true;
     },
 
     async updateTask() {
       try {
+         // 转换日期格式为ISO字符串
+        const deadline = new Date(this.editingTask.deadline).toISOString()
         await updateTask(this.editingTask.id, {
           duration: this.editingTask.duration,
           priority: this.editingTask.priority,
-          status: this.editingTask.status
+          status: this.editingTask.status,
+          deadline: deadline  // 添加截止时间
         });
         this.showEditModal = false;
         await this.loadTasks();
@@ -449,6 +465,15 @@ export default {
         console.error('分配任务失败:', error);
         ElMessage.error(error.message || '分配任务失败')
       }
+    },
+     // 禁止选择过去的时间
+    disabledDate(time) {
+      return time.getTime() < Date.now() - 8.64e7 // 86400000 = 1天
+    },
+    getCurrentDateTime() {
+      const now = new Date();
+      // 转换为本地日期时间字符串格式
+      return now.toISOString().slice(0, 16);
     }
   }
 }
@@ -709,4 +734,13 @@ export default {
   border-radius: 4px;
   cursor: pointer;
 }
+
+.form-input[type="datetime-local"] {
+  /* 确保日期选择器有足够高度 */
+  line-height: 1.5;
+  padding: 8px;
+}
+
+
+
 </style>
