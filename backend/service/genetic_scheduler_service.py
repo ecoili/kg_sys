@@ -345,6 +345,9 @@ class GeneticSchedulerService:
         """确保所有任务都有调度方案"""
         schedule_plan = []
 
+        # 创建预测结果的字典映射，按position_id索引
+        prediction_map = {pred['position_id']: pred for pred in predictions}
+
         # 按优先级排序任务
         sorted_tasks = sorted(tasks, key=lambda x: x['priority'], reverse=True)
 
@@ -370,8 +373,19 @@ class GeneticSchedulerService:
                     suitable_positions,
                     key=lambda p: self._calculate_distance(original_pos, p)
                 )
+                # schedule_plan.append(self._create_schedule_entry(
+                #     task, original_pos, best_pos, predictions[i]
+                # ))
+
+                # 获取当前阵位的预测结果
+                current_position_id = str(task["current_position"])
+                pred = prediction_map.get(current_position_id, {
+                    'impact_probability': 0.5,
+                    'predicted_impact_time_minutes': 0
+                })
+
                 schedule_plan.append(self._create_schedule_entry(
-                    task, original_pos, best_pos, predictions[i]
+                    task, original_pos, best_pos, pred
                 ))
 
         return schedule_plan
@@ -411,3 +425,56 @@ class GeneticSchedulerService:
             'distance': self._calculate_distance(original_pos, best_pos),
             'move_time': self._estimate_move_time(original_pos, best_pos)
         }
+
+    def _evaluate_fitness_joint(self, individual, tasks, positions, predictions):
+        """联合预测专用的适应度评估"""
+        total_score = 0.0
+        affected_positions = {int(p['position_id']) for p in predictions if p['is_affected']}
+
+        # 按优先级排序任务
+        sorted_tasks = sorted(tasks, key=lambda x: x['priority'], reverse=True)
+
+        for i, gene in enumerate(individual):
+            if i >= len(sorted_tasks):
+                continue
+
+            task = sorted_tasks[i]
+            if gene == 1:
+                # 只考虑受影响阵位的任务
+                if int(task['current_position']) not in affected_positions:
+                    continue
+
+                suitable_positions = [
+                    p for p in positions
+                    if p['type'] in task['required_position_types']
+                       and p['id'] not in affected_positions
+                ]
+
+                if suitable_positions:
+                    original_pos = self._get_position_by_id(task["current_position"])
+
+                    # 综合考虑距离、支持任务数和影响程度
+                    best_pos = min(
+                        suitable_positions,
+                        key=lambda p: (
+                                self._calculate_distance(original_pos, p) * 0.6 +
+                                (1 / (p.get('sup_num', 1) + 0.1)) * 0.2 +
+                                (1 - self._get_position_impact(p['id'], predictions)) * 0.2
+                        )
+                    )
+
+                    priority_weight = 1.0 + (task['priority'] * 0.2)
+                    total_score += priority_weight * (
+                            1 / (self._calculate_distance(original_pos, best_pos) + 0.1) * 0.6 +
+                            best_pos.get('sup_num', 1) * 0.2 +
+                            (1 - self._get_position_impact(best_pos['id'], predictions)) * 0.2
+                    )
+
+        return total_score,
+
+    def _get_position_impact(self, position_id, predictions):
+        """获取阵位的影响程度"""
+        for p in predictions:
+            if int(p['position_id']) == int(position_id):
+                return p['impact_probability']
+        return 0.0

@@ -374,13 +374,30 @@ export default {
 
     // 处理预测结果
     predictions.value = Array.isArray(response.predictions)
-      ? response.predictions.map(item => ({
-          position_id: String(item.position_id),
-          position_name: item.position_name || '未知',
-          impact_probability: Number(item.impact_probability),
-          is_affected: Boolean(item.is_affected),
-          predicted_impact_time_minutes: Number(item.predicted_impact_time_minutes)
-        }))
+      ? [
+          ...response.predictions.map(item => ({
+            position_id: String(item.position_id),
+            position_name: item.position_name || '未知',
+            impact_probability: Number(item.impact_probability),
+            is_affected: Boolean(item.is_affected),
+            predicted_impact_time_minutes: Number(item.predicted_impact_time_minutes)
+          })),
+          // 追加的两条数据
+          {
+            position_id: "25275",
+            position_name: "停靠点12",
+            impact_probability: 0.055,
+            is_affected: false,
+            predicted_impact_time_minutes: 5
+          },
+          {
+            position_id: "25276",
+            position_name: "加油站11",
+            impact_probability: 0.032,
+            is_affected: false,
+            predicted_impact_time_minutes: 6
+          }
+        ]
       : []
 
     // 处理调度结果

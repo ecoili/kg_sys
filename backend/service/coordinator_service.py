@@ -89,6 +89,64 @@ class CoordinatorService:
             'schedule': schedule['schedule']
         }
 
+    def predict_and_schedule_joint(self, source_position_ids, event_types, severities, durations):
+        """多阵位联合预测与调度"""
+        # 1. 联合影响预测
+        joint_predictions = self.prediction_service.predict_joint_impact(
+            source_position_ids, event_types, severities, durations
+        )
+
+        # 2. 获取受影响阵位
+        affected_positions = [
+            int(p['position_id']) for p in joint_predictions
+            if p['impact_probability'] > 0.1 and p['predicted_impact_time_minutes'] > 0
+        ]
+
+        if not affected_positions:
+            return {"predictions": joint_predictions, "schedule": []}
+
+        # 3. 获取需要调度的任务（去重）
+        tasks = self._fetch_unique_tasks(affected_positions)
+
+        if not tasks:
+            return {"predictions": joint_predictions, "schedule": []}
+
+        # 4. 获取可用阵位
+        all_positions = self._fetch_available_positions(affected_positions)
+
+        if not all_positions:
+            return {"predictions": joint_predictions, "schedule": []}
+
+        # 5. 运行遗传算法
+        best_individual = self.scheduler_service._run_genetic_algorithm(tasks, all_positions)
+
+        if not best_individual:
+            return {"predictions": joint_predictions, "schedule": []}
+
+        # 6. 生成调度方案
+        schedule_plan = self.scheduler_service._generate_schedule_plan(
+            best_individual, tasks, all_positions, joint_predictions
+        )
+
+        return {
+            "predictions": joint_predictions,
+            "schedule": schedule_plan,
+            "joint_event": True  # 标记为联合事件
+        }
+
+    def _fetch_unique_tasks(self, position_ids):
+        """获取去重后的任务列表"""
+        query = """
+        MATCH (t:Task)-[r:ASSIGNED_TO]->(p:Position)
+        WHERE p.id IN $position_ids AND t.status IN ['待分配', '已分配']
+        RETURN DISTINCT t.id as task_id, t.type as task_type, 
+               t.priority as priority, t.deadline as deadline,
+               p.id as current_position, p.name as position_name,
+               p.type as position_type, t.required_resources as required_resources,
+               t.required_position_types as required_position_types
+        """
+        return list(neo4j.graph.run(query, position_ids=position_ids))
+
     def _combine_predictions(self, all_predictions):
         """合并多个特情的影响预测"""
         combined = {}

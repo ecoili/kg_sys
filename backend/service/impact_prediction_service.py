@@ -94,6 +94,84 @@ class ImpactPredictionService(BasePredictionService):
         except Exception as e:
             self._handle_prediction_error(e)
 
+    def predict_joint_impact(self, source_position_ids, event_types, severities, durations):
+        """多阵位联合影响预测"""
+        try:
+            if len(source_position_ids) != len(event_types) != len(severities) != len(durations):
+                raise ValueError("所有输入列表的长度必须一致")
+
+            # 转换为模型输入格式
+            batch_size = len(source_position_ids)
+            source_node_indices = []
+            event_type_indices = []
+
+            for i in range(batch_size):
+                pos_id = str(source_position_ids[i])
+                if pos_id not in self.node_id_map:
+                    raise ValueError(f"无效的阵位ID: {pos_id}")
+                event_type = event_types[i]
+                if event_type not in self.event_type_map:
+                    raise ValueError(f"无效的事件类型: {event_type}")
+
+                source_node_indices.append(self.node_id_map[pos_id])
+                event_type_indices.append(self.event_type_map[event_type])
+
+            # 准备批量输入张量
+            source_nodes_tensor = torch.tensor(source_node_indices, device=self.device).view(-1, 1)
+            event_types_tensor = torch.tensor(event_type_indices, device=self.device).view(-1, 1)
+            severity_tensor = torch.tensor(severities, device=self.device).float().view(-1, 1)
+            duration_tensor = torch.tensor(durations, device=self.device).float().view(-1, 1)
+
+            # 联合预测
+            with torch.no_grad():
+                outputs = self.model(
+                    self.graph_data.x.to(self.device),
+                    self.graph_data.edge_index.to(self.device),
+                    self.graph_data.edge_type.to(self.device),
+                    source_nodes_tensor,
+                    event_types_tensor,
+                    severity_tensor,
+                    duration_tensor
+                )
+
+            # 处理联合预测结果
+            return self._process_joint_prediction_results(
+                outputs, source_position_ids, event_types
+            )
+
+        except Exception as e:
+            self._handle_prediction_error(e)
+
+    def _process_joint_prediction_results(self, outputs, source_ids, event_types):
+        """处理联合预测结果"""
+        # outputs形状应为 [batch_size, num_nodes, 2]
+        impact_probs = torch.sigmoid(outputs[:, :, 0])  # 影响概率
+        impact_times = outputs[:, :, 1]  # 影响时间
+
+        # 初始化综合影响矩阵
+        combined_probs = torch.zeros_like(impact_probs[0])
+        combined_times = torch.zeros_like(impact_times[0])
+
+        # 合并多个事件的影响（取最大值）
+        for i in range(len(source_ids)):
+            combined_probs = torch.maximum(combined_probs, impact_probs[i])
+            combined_times = torch.maximum(combined_times, impact_times[i])
+
+        # 转换为预测结果格式
+        predictions = []
+        for node_idx in range(combined_probs.size(0)):
+            position_id = str(self.reverse_node_id_map[node_idx])
+            predictions.append({
+                "position_id": position_id,
+                "impact_probability": combined_probs[node_idx].item(),
+                "is_affected": 1 if combined_probs[node_idx] > 0.5 else 0,
+                "predicted_impact_time_minutes": max(0, combined_times[node_idx].item()),
+                "source_position_ids": source_ids,
+                "event_types": event_types
+            })
+
+        return predictions
+
     def _process_prediction_results(self, outputs):
         """处理单个预测结果"""
         impact_logits = outputs[0, :, 0]

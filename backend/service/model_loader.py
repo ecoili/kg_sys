@@ -1,5 +1,4 @@
 import os
-
 import torch
 from .station_impact_prediction_multitask import load_model, load_and_preprocess_data
 from backend import config

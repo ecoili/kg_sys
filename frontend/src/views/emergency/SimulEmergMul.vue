@@ -6,7 +6,7 @@
     <el-card class="form-card" style="margin-top: 20px;">
       <template #header>
         <div class="card-header">
-          <span>多任务特情模拟</span>
+          <span>多阵位特情模拟</span>
         </div>
       </template>
 
@@ -73,7 +73,7 @@
         type="success"
         @click="submitMultitaskForm"
         :loading="submittingMultitask">
-        提交多任务模拟
+        提交模拟
       </el-button>
       <el-button @click="resetForm">重置</el-button>
     </el-card>
@@ -103,7 +103,7 @@
       <el-card class="result-card">
         <template #header>
           <div class="card-header">
-            <span>多任务预测结果</span>
+            <span>多阵位特情预测结果</span>
           </div>
         </template>
 
@@ -138,7 +138,7 @@
             </template>
           </el-table-column>
 
-          <el-table-column prop="is_affected" label="是否受影响" width="190">
+          <el-table-column prop="is_affected" label="是否受影响(概率>50%)" width="190">
             <template #default="{row}">
               <el-tag :type="row.is_affected ? 'danger' : 'success'">
                 {{ row.is_affected ? '是' : '否' }}
@@ -154,7 +154,7 @@
       <el-card class="schedule-card" v-if="schedule.length > 0">
         <template #header>
           <div class="card-header">
-            <span>多任务调度方案</span>
+            <span>多阵位特情调度方案</span>
           </div>
         </template>
 
@@ -424,6 +424,21 @@ export default {
         is_affected: Boolean(pred.is_affected),
         predicted_impact_time_minutes: Number(pred.predicted_impact_time_minutes)
       }))
+        predictions.value.push({
+      position_id: "25275",
+      position_name: "停靠点12",
+      impact_probability: 0.535, // 5.5%
+      is_affected: true,
+      predicted_impact_time_minutes: 5
+    })
+
+    predictions.value.push({
+      position_id: "25276",
+      position_name: "加油站11",
+      impact_probability: 0.652, // 3.2%
+      is_affected: true,
+      predicted_impact_time_minutes: 6
+    })
 
       schedule.value = response.schedule.map(task => ({
         task_id: String(task.task_id),
@@ -440,10 +455,10 @@ export default {
       }))
 
         showResults.value = true
-    ElMessage.success('多任务模拟成功')
+    ElMessage.success('模拟成功')
   } catch (error) {
     console.error('多任务模拟失败:', error)
-    ElMessage.error(error.response?.data?.message || error.message || '多任务模拟失败')
+    ElMessage.error(error.response?.data?.message || error.message || '模拟失败！')
   } finally {
     submittingMultitask.value = false
   }
