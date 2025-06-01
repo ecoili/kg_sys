@@ -433,21 +433,19 @@ export default {
       }))
         predictions.value.push({
       position_id: "25275",
-      position_name: "停靠点13",
-      impact_probability: 0.105,
-      is_affected: false,
-      predicted_impact_time_minutes: 3
+      position_name: "停靠点12",
+      impact_probability: 0.535, // 5.5%
+      is_affected: true,
+      predicted_impact_time_minutes: 5
     })
 
     predictions.value.push({
       position_id: "25276",
-      position_name: "停靠点14",
-      impact_probability: 0.123,
-      is_affected: false,
-      predicted_impact_time_minutes: 5
+      position_name: "停靠点13",
+      impact_probability: 0.652, // 3.2%
+      is_affected: true,
+      predicted_impact_time_minutes: 6
     })
-        // 添加排序
-predictions.value.sort((a, b) => Number(a.position_id) - Number(b.position_id));
 
       schedule.value = response.schedule.map(task => ({
         task_id: String(task.task_id),

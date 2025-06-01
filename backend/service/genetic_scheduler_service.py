@@ -136,10 +136,10 @@ class GeneticSchedulerService:
 
     def _get_affected_positions(self, predictions):
         """获取受影响阵位列表"""
-        # 目前影响概率大于10% 影响时间大于0分钟 就会触发调度
+        # 目前影响概率大于50% 影响时间大于0分钟 就会触发调度
         return [
             int(p['position_id']) for p in predictions
-            if p['impact_probability'] > 0.1 and p['predicted_impact_time_minutes'] > 0
+            if p['impact_probability'] > 0.5 and p['predicted_impact_time_minutes'] > 0
         ]
 
     def _fetch_tasks_to_schedule(self, affected_positions):

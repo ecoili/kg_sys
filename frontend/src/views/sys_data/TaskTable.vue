@@ -79,15 +79,15 @@
           <label>优先级(1-5):</label>
           <input v-model.number="editingTask.priority" type="number" min="1" max="5" class="form-input">
         </div>
-        <div class="form-group">
-          <label>截止时间:</label>
-          <input
-            v-model="editingTask.deadline"
-            type="datetime-local"
-            class="form-input"
-            :min="getCurrentDateTime()"
-          >
-        </div>
+<!--        <div class="form-group">-->
+<!--          <label>截止时间:</label>-->
+<!--          <input-->
+<!--            v-model="editingTask.deadline"-->
+<!--            type="datetime-local"-->
+<!--            class="form-input"-->
+<!--            :min="getCurrentDateTime()"-->
+<!--          >-->
+<!--        </div>-->
 <!--        <div class="form-group">-->
 <!--          <label>状态:</label>-->
 <!--          <select v-model="editingTask.status" class="form-input">-->
@@ -137,7 +137,7 @@
             <th>优先级</th>
             <th>状态</th>
             <th>分配阵位</th>
-            <th>截止时间</th>
+<!--            <th>截止时间</th>-->
             <th>操作</th>
           </tr>
         </thead>
@@ -158,7 +158,7 @@
               </span>
             </td>
             <td>阵位{{task.current_pos}}:{{ task.current_pos_name || '待分配' }}</td>
-            <td>{{ formatDeadline(task.deadline) }}</td>
+<!--            <td>{{ formatDeadline(task.deadline) }}</td>-->
             <td>
               <button @click="openEditModal(task)" class="action-btn edit-btn">编辑</button>
               <button @click="deleteTask(task.id)" class="action-btn delete-btn">删除</button>

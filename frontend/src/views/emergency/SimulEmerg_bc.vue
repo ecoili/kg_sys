@@ -8,6 +8,17 @@
       </template>
 
       <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
+        <el-form-item label="特情类型" prop="event_type">
+          <el-select v-model="form.event_type" placeholder="请选择特情类型">
+            <el-option
+              v-for="item in eventTypes"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value">
+            </el-option>
+          </el-select>
+        </el-form-item>
+
         <el-form-item label="阵位ID" prop="position_id">
           <el-input
             v-model="form.position_id"
@@ -21,18 +32,6 @@
 <!--            {{ currentPosition.type_identifier }} ({{ currentPosition.position_type }})-->
 <!--          </div>-->
         </el-form-item>
-        <el-form-item label="特情类型" prop="event_type">
-          <el-select v-model="form.event_type" placeholder="请选择特情类型">
-            <el-option
-              v-for="item in eventTypes"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value">
-            </el-option>
-          </el-select>
-        </el-form-item>
-
-
 
         <el-form-item label="严重程度" prop="severity">
           <el-slider
@@ -254,7 +253,7 @@ export default {
           x: item.x,
           y: item.y
           // type_identifier: item.type
-        })).sort((a, b) => Number(a.position_id) - Number(b.position_id))
+        }))
       } catch (error) {
         console.error('加载阵位数据失败:', error)
         ElMessage.error('加载阵位数据失败')
@@ -386,14 +385,14 @@ export default {
           // 追加的两条数据
           {
             position_id: "25275",
-            position_name: "停靠点13",
+            position_name: "停靠点12",
             impact_probability: 0.055,
             is_affected: false,
             predicted_impact_time_minutes: 5
           },
           {
             position_id: "25276",
-            position_name: "停靠点14",
+            position_name: "加油站11",
             impact_probability: 0.032,
             is_affected: false,
             predicted_impact_time_minutes: 6
